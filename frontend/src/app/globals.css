@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fffdf9;
+  --bg-elevated: #fff7ef;
+  --fg: #1b140e;
+  --muted: #6c5a4b;
+  --panel: #ffffff;
+  --outline: #ead8c6;
+
+  --brand: #ea6422;
+  --brand-foreground: #fffaf4;
+
+  --accent: #f2b239;
+  --accent-foreground: #3a2709;
+
+  --success: #177a46;
+  --success-soft: #d8f2e3;
+
+  --warning: #905713;
+  --warning-soft: #fce9c8;
+
+  --danger: #b64242;
+  --danger-soft: #fde2e2;
+
+  --page-backdrop:
+    radial-gradient(circle at 11% 6%, rgba(255, 178, 119, 0.28), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(255, 229, 171, 0.32), transparent 42%),
+    radial-gradient(circle at 35% 96%, rgba(255, 205, 148, 0.18), transparent 44%),
+    linear-gradient(125deg, #fffefb 0%, #fff9f1 48%, #fff4e8 100%);
+  --shadow-soft: 0 14px 34px rgba(148, 88, 32, 0.14);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-panel: var(--panel);
+  --color-outline: var(--outline);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+.dark {
+  --bg: #121015;
+  --bg-elevated: #1a1620;
+  --fg: #f6efe7;
+  --muted: #b6aa9f;
+  --panel: #201a24;
+  --outline: #3d3138;
+
+  --brand: #ff985d;
+  --brand-foreground: #2a150b;
+
+  --accent: #ffd27f;
+  --accent-foreground: #2f240f;
+
+  --success: #68d695;
+  --success-soft: #173327;
+
+  --warning: #ffc67a;
+  --warning-soft: #3a2910;
+
+  --danger: #ff9494;
+  --danger-soft: #3f1d1d;
+
+  --page-backdrop:
+    radial-gradient(circle at 11% 8%, rgba(255, 146, 86, 0.18), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(255, 199, 121, 0.13), transparent 43%),
+    radial-gradient(circle at 28% 92%, rgba(230, 120, 80, 0.09), transparent 45%),
+    linear-gradient(125deg, #121015 0%, #18131b 52%, #1f1713 100%);
+  --shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--brand) 36%, white 0%);
+  color: var(--fg);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+.app-backdrop {
+  background: var(--page-backdrop);
+}
+
+.hero-mesh {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 140, 71, 0.2), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(255, 219, 151, 0.22), transparent 42%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.82), rgba(255, 246, 232, 0.7));
+}
+
+.dark .hero-mesh {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 147, 79, 0.17), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(255, 200, 119, 0.12), transparent 42%),
+    linear-gradient(140deg, rgba(34, 26, 22, 0.76), rgba(23, 18, 25, 0.74));
+}
