@@ -12,6 +12,9 @@
 [![License](https://img.shields.io/badge/License-MIT%202026-10b981?style=for-the-badge)](./LICENSE)
 [![Author](https://img.shields.io/badge/Architect-UMAR%20MUKTHAR-8b5cf6?style=for-the-badge&logo=github)](https://github.com/UMARMUKTHAR03)
 
+> 🌐 **Live Interactive Website:** **[https://umarmukthar03.github.io/ecommerce-platform/](https://umarmukthar03.github.io/ecommerce-platform/)**  
+> 🚀 *Experience the full interactive Next-Gen Luxury E-Commerce platform live in your browser &mdash; zero installation required.*
+
 ---
 
 ## 🖼️ Visual Platform Preview
