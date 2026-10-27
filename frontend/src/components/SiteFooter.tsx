@@ -20,6 +20,16 @@ export function SiteFooter() {
           <p className="mt-3 max-w-xs text-sm text-muted">
             Built for fast, trusted commerce experiences across Bangladesh with modern payment flexibility.
           </p>
+          <div className="mt-4">
+            <a
+              href="https://github.com/UMARMUKTHAR03"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-xs font-semibold text-brand transition hover:border-brand"
+            >
+              <span>Lead Architect: UMAR MUKTHAR</span>
+            </a>
+          </div>
         </div>
 
         <div>
@@ -83,7 +93,15 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-outline/70 px-4 py-4 text-center text-xs text-muted lg:px-6">
-        Copyright {new Date().getFullYear()} BazaarFlow. All rights reserved.
+        Copyright {new Date().getFullYear()} BazaarFlow. All rights reserved. • Architected &amp; Maintained by{' '}
+        <a
+          href="https://github.com/UMARMUKTHAR03"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-fg underline-offset-4 hover:underline"
+        >
+          UMAR MUKTHAR (@UMARMUKTHAR03)
+        </a>
       </div>
     </footer>
   );
