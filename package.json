@@ -12,7 +12,8 @@
     "test:backend": "npm run test --workspace backend",
     "test:backend:e2e": "npm run test:e2e --workspace backend",
     "start:backend": "npm run start:prod --workspace backend",
-    "migration:run": "npm run migration:run --workspace backend"
+    "migration:run": "npm run migration:run --workspace backend",
+    "db:test": "npm run db:test --workspace backend"
   },
   "workspaces": [
     "frontend",

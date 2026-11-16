@@ -99,6 +99,11 @@ const loggerTransports: winston.transport[] = [
           ssl: isProd || forceSsl ? { rejectUnauthorized: false } : false,
           synchronize: false,
           retryAttempts: dbUrl ? 5 : 0,
+          extra: {
+            max: 10,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000,
+          },
           logging: !isProd
             ? ['error', 'warn', 'migration']
             : ['error', 'warn'],

@@ -4,14 +4,29 @@ Certain integrations require private credentials or one-time configuration in ex
 
 ---
 
-## 1. Database (PostgreSQL / Supabase)
+## 1. Database (Supabase PostgreSQL — Singapore)
 
-- **Provider:** [Supabase](https://supabase.com) or [Render PostgreSQL](https://render.com).
-- **Environment Variable:** `DATABASE_URL` (and optional `DATABASE_MIGRATION_URL` for external direct migration connections).
-- **Actions Required:**
-  1. Create a PostgreSQL project.
-  2. Copy the connection URI into `DATABASE_URL` on Render.
-  3. Schema tables and indexes are executed via TypeORM migrations during the build phase (`npm run migration:run`).
+- **Provider:** [Supabase](https://supabase.com) (Region: `ap-southeast-1` Singapore)
+- **Connection Mode:** **Session Pooler (port 5432)**
+- **Environment Variables:**
+  - `DATABASE_URL`: Session pooler connection string:
+    `postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`
+  - `DATABASE_MIGRATION_URL`: Direct database connection (or port 5432 session pooler):
+    `postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres`
+  - `DATABASE_SSL`: Set to `true`
+- **Actions Required in Supabase Dashboard:**
+  1. Open project settings: **Settings > Database > Connection pooling configuration**.
+  2. Choose **Session** pool mode on port **5432**.
+  3. Copy the URI and replace `[YOUR-PASSWORD]` with your actual Supabase database password.
+  4. Paste into `DATABASE_URL` in the Render service environment settings.
+- **Local Testing Command:**
+  ```bash
+  # Test connection without exposing secrets in logs
+  npm run db:test
+  ```
+- **Troubleshooting:**
+  - If migrations report prepared statement errors, ensure you connect to the **Session Pooler (port 5432)** or direct connection, not Transaction Pooler (port 6543).
+  - If connection times out, verify that your IP or cloud provider has IPv4 connectivity and that `DATABASE_SSL=true`.
 
 ---
 

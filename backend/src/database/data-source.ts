@@ -12,6 +12,11 @@ export const AppDataSource = new DataSource({
   type: 'postgres',
   url: dbUrl,
   ssl: isProd || forceSsl ? { rejectUnauthorized: false } : false,
+  extra: {
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  },
   entities: [join(__dirname, '..', 'entities', '*.entity{.ts,.js}')],
   migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
   synchronize: false,

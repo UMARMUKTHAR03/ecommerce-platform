@@ -17,7 +17,11 @@ This guide describes how to deploy the production infrastructure for BazaarFlow 
 2. Connect your repository: `UMARMUKTHAR03/ecommerce-platform`.
 3. Render will detect `render.yaml`.
 4. Configure required production environment variables:
-   - `DATABASE_URL`: Your production PostgreSQL connection string (`postgresql://postgres:[PASSWORD]@[HOST]:[PORT]/postgres`).
+   - `DATABASE_URL`: Supabase Singapore Session Pooler URI on port 5432:
+     `postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`
+   - `DATABASE_MIGRATION_URL`: Direct database connection (or port 5432 session pooler connection) used for executing migrations:
+     `postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres`
+   - `DATABASE_SSL`: Set to `true` (enforces TLS encryption for database connections).
    - `FRONTEND_URL`: URL of the deployed Next.js frontend (e.g. `https://bazaarflow-luxe.vercel.app`).
    - `BACKEND_PUBLIC_URL`: URL of the Render web service (e.g. `https://bazaarflow-backend.onrender.com`).
    - `STRIPE_SECRET_KEY`: Live or test key starting with `sk_live_...` or `sk_test_...`.
