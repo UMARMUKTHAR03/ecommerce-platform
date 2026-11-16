@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import Stripe from 'stripe';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
+import { Order, OrderStatus } from '../entities/order.entity';
 import { EmailService } from '../email/email.service';
 import { OrdersService } from '../orders/orders.service';
 
@@ -16,6 +17,7 @@ export class StripeService {
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
     private readonly emailService: EmailService,
+    private readonly dataSource: DataSource,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
   ) {
@@ -63,7 +65,7 @@ export class StripeService {
       );
     } catch (err) {
       this.logger.error(`Stripe signature verification failed: ${(err as Error).message}`);
-      throw err;
+      throw new BadRequestException(`Webhook signature verification failed: ${(err as Error).message}`);
     }
 
     this.logger.log(`Stripe webhook verified: ${event.type} (${event.id})`);
@@ -72,26 +74,55 @@ export class StripeService {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const orderId = paymentIntent.metadata?.orderId;
 
-      if (orderId) {
-        // Idempotency check: see if payment with this transaction_id already recorded as completed
-        const existingPayment = await this.paymentRepository.findOne({
+      if (!orderId) {
+        this.logger.warn(`Stripe event ${event.id} missing orderId in metadata`);
+        return { received: true, ignored: 'missing_order_id' };
+      }
+
+      // Check payment intent amount vs order total in DB
+      const expectedOrder = await this.dataSource.getRepository(Order).findOne({
+        where: { id: orderId },
+        relations: { customer: true },
+      });
+
+      if (!expectedOrder) {
+        this.logger.error(`Order ${orderId} referenced in PaymentIntent not found`);
+        throw new BadRequestException(`Order ${orderId} not found`);
+      }
+
+      const expectedAmountInCents = Math.round(Number(expectedOrder.total) * 100);
+      if (paymentIntent.amount !== expectedAmountInCents) {
+        this.logger.error(
+          `Payment amount mismatch for order ${orderId}: expected ${expectedAmountInCents} cents, got ${paymentIntent.amount} cents`,
+        );
+        throw new BadRequestException('Payment amount mismatch between intent and order');
+      }
+
+      // Perform atomic idempotent payment registration inside transaction with row lock
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        const paymentRepo = queryRunner.manager.getRepository(Payment);
+        const existingPayment = await paymentRepo.findOne({
           where: { transactionId: paymentIntent.id },
         });
 
         if (existingPayment && existingPayment.status === PaymentStatus.COMPLETED) {
           this.logger.log(`Payment ${paymentIntent.id} already processed for order ${orderId}`);
+          await queryRunner.rollbackTransaction();
           return { received: true, alreadyProcessed: true };
         }
 
         const paidOrder = await this.ordersService.finalizePaidOrder(orderId, paymentIntent.id);
 
-        // Record or update payment entity
         if (existingPayment) {
           existingPayment.status = PaymentStatus.COMPLETED;
           existingPayment.rawPayload = event as unknown as Record<string, unknown>;
-          await this.paymentRepository.save(existingPayment);
+          await paymentRepo.save(existingPayment);
         } else {
-          const paymentRecord = this.paymentRepository.create({
+          const paymentRecord = paymentRepo.create({
             orderId,
             provider: 'stripe',
             transactionId: paymentIntent.id,
@@ -100,10 +131,12 @@ export class StripeService {
             status: PaymentStatus.COMPLETED,
             rawPayload: event as unknown as Record<string, unknown>,
           });
-          await this.paymentRepository.save(paymentRecord);
+          await paymentRepo.save(paymentRecord);
         }
 
-        this.logger.log(`Stripe payment succeeded for order ${orderId}`);
+        await queryRunner.commitTransaction();
+
+        this.logger.log(`Stripe payment succeeded and recorded for order ${orderId}`);
 
         if (paidOrder.customer?.email) {
           this.emailService
@@ -115,6 +148,11 @@ export class StripeService {
               );
             });
         }
+      } catch (err) {
+        await queryRunner.rollbackTransaction();
+        throw err;
+      } finally {
+        await queryRunner.release();
       }
     }
 

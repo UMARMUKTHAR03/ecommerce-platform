@@ -170,17 +170,23 @@ export async function runDatabaseSeed(dataSource: DataSource) {
     const adminEmail = (process.env.ADMIN_EMAIL ?? 'admin@bazaarflow.com').toLowerCase();
     const existingAdmin = await adminRepo.findOneBy({ email: adminEmail });
     if (!existingAdmin) {
-      const rawPassword = process.env.ADMIN_INITIAL_PASSWORD ?? 'Admin@BazaarFlow2026!';
-      const hash = await bcrypt.hash(rawPassword, 10);
-      await adminRepo.save(
-        adminRepo.create({
-          email: adminEmail,
-          passwordHash: hash,
-          name: 'BazaarFlow Executive',
-          role: AdminRole.SUPERADMIN,
-          isActive: true,
-        }),
-      );
+      const rawPassword = process.env.ADMIN_INITIAL_PASSWORD;
+      if (!rawPassword) {
+        console.warn(
+          'ADMIN_INITIAL_PASSWORD is not set. Skipping initial admin user creation to avoid insecure defaults.',
+        );
+      } else {
+        const hash = await bcrypt.hash(rawPassword, 10);
+        await adminRepo.save(
+          adminRepo.create({
+            email: adminEmail,
+            passwordHash: hash,
+            name: 'BazaarFlow Executive',
+            role: AdminRole.SUPERADMIN,
+            isActive: true,
+          }),
+        );
+      }
     }
   } finally {
     await queryRunner.release();

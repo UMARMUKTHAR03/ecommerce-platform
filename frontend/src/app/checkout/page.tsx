@@ -70,6 +70,7 @@ export default function CheckoutPage() {
       const payload = await apiPost<{ id: string }>('/store/orders', {
         items: items.map((item) => ({
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
         })),
         shippingAddress: {

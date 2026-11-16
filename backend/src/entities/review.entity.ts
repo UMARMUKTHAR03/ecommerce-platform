@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -12,6 +13,9 @@ import { Product } from './product.entity';
 
 @Entity({ name: 'reviews' })
 @Check('CHK_REVIEW_RATING_RANGE', 'rating >= 1 AND rating <= 5')
+@Index('idx_reviews_customer_product_unique', ['customerId', 'productId'], {
+  unique: true,
+})
 export class Review {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

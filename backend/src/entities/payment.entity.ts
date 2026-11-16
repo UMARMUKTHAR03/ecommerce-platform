@@ -18,6 +18,10 @@ export enum PaymentStatus {
 }
 
 @Entity({ name: 'payments' })
+@Index('idx_payments_transaction_unique', ['transactionId'], {
+  unique: true,
+  where: '"transaction_id" IS NOT NULL',
+})
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

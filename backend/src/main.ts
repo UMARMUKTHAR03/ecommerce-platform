@@ -16,6 +16,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const frontendUrl = configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   app.set('trust proxy', 1);
@@ -33,21 +34,37 @@ async function bootstrap() {
     }),
   );
 
-  // Allow both configured frontend URL and any vercel preview deployments or localhost
-  const allowedOrigins = [
-    frontendUrl,
+  // Exact origin checking: allow configured frontend URL and explicit development origins
+  const normalizedFrontend = frontendUrl.replace(/\/+$/, '');
+  const allowedOrigins = new Set([
+    normalizedFrontend,
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
     'https://umarmukthar03.github.io',
-  ];
+  ]);
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Permissive in dev/staging preview
+      if (!origin) {
+        return callback(null, true);
       }
+
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (allowedOrigins.has(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow vercel preview deployments only in non-production or if explicitly matching app domain
+      if (
+        !isProduction &&
+        cleanOrigin.endsWith('.vercel.app')
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS origin not allowed: ${origin}`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

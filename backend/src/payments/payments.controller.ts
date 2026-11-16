@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   Post,
@@ -108,47 +109,68 @@ export class PaymentsController {
   }
 
   @Post('bkash/execute')
-  async executeBkashPayment(@Body() dto: ExecuteBkashPaymentDto) {
-    const execution = await this.bkashService.executePayment(dto.paymentId);
+  @UseGuards(CustomerJwtGuard)
+  async executeBkashPayment(
+    @CurrentUser() user: Record<string, unknown>,
+    @Body() dto: ExecuteBkashPaymentDto,
+  ) {
+    const customerId = this.extractCustomerId(user);
+    // 1. Verify ownership of order
+    const order = await this.ordersService.getOrderForPayment(dto.orderId, customerId);
 
-    if (this.isBkashSuccess(execution)) {
-      const paidOrder = await this.ordersService.finalizePaidOrder(dto.orderId, dto.paymentId);
+    // 2. Prevent duplicate processing
+    const existingPayment = await this.paymentRepository.findOne({
+      where: { transactionId: dto.paymentId },
+    });
 
-      // Record payment entity
-      const existingPayment = await this.paymentRepository.findOne({
-        where: { transactionId: dto.paymentId },
+    if (existingPayment && existingPayment.status === PaymentStatus.COMPLETED) {
+      return {
+        orderId: dto.orderId,
+        paymentId: dto.paymentId,
+        alreadyProcessed: true,
+      };
+    }
+
+    // 3. Query transaction status from bKash provider to verify amount and status
+    const queryStatus = await this.bkashService.queryPayment(dto.paymentId);
+    if (!this.isBkashSuccess(queryStatus)) {
+      // Execute payment through tokenized API
+      const execution = await this.bkashService.executePayment(dto.paymentId);
+      if (!this.isBkashSuccess(execution)) {
+        throw new BadRequestException('bKash payment execution was not successful');
+      }
+    }
+
+    // 4. Finalize paid order and record payment record idempotently
+    const paidOrder = await this.ordersService.finalizePaidOrder(dto.orderId, dto.paymentId);
+
+    if (existingPayment) {
+      existingPayment.status = PaymentStatus.COMPLETED;
+      existingPayment.rawPayload = queryStatus;
+      await this.paymentRepository.save(existingPayment);
+    } else {
+      const paymentRecord = this.paymentRepository.create({
+        orderId: dto.orderId,
+        provider: 'bkash',
+        transactionId: dto.paymentId,
+        amount: Number(paidOrder.total).toFixed(2),
+        currency: 'BDT',
+        status: PaymentStatus.COMPLETED,
+        rawPayload: queryStatus,
       });
+      await this.paymentRepository.save(paymentRecord);
+    }
 
-      if (existingPayment) {
-        existingPayment.status = PaymentStatus.COMPLETED;
-        existingPayment.rawPayload = execution;
-        await this.paymentRepository.save(existingPayment);
-      } else {
-        const paymentRecord = this.paymentRepository.create({
-          orderId: dto.orderId,
-          provider: 'bkash',
-          transactionId: dto.paymentId,
-          amount: Number(paidOrder.total).toFixed(2),
-          currency: 'BDT',
-          status: PaymentStatus.COMPLETED,
-          rawPayload: execution,
-        });
-        await this.paymentRepository.save(paymentRecord);
-      }
-
-      if (paidOrder.customer?.email) {
-        this.emailService
-          .sendOrderConfirmation(paidOrder, paidOrder.customer)
-          .catch(() => {
-            // Keep payment completion resilient; email failures are logged in EmailService.
-          });
-      }
+    if (paidOrder.customer?.email) {
+      this.emailService
+        .sendOrderConfirmation(paidOrder, paidOrder.customer)
+        .catch(() => {});
     }
 
     return {
       orderId: dto.orderId,
       paymentId: dto.paymentId,
-      execution,
+      status: 'completed',
     };
   }
 
@@ -182,8 +204,8 @@ export class PaymentsController {
   }
 
   private isBkashSuccess(payload: Record<string, unknown>) {
-    const statusCode = String(payload.statusCode ?? '');
-    const transactionStatus = String(payload.transactionStatus ?? payload.status ?? '');
+    const statusCode = String(payload?.statusCode ?? '');
+    const transactionStatus = String(payload?.transactionStatus ?? payload?.status ?? '');
 
     if (statusCode === '0000') {
       return true;

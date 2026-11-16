@@ -1,4 +1,19 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// In the browser, route API calls through the same-origin Next.js proxy rewrite (/api/backend)
+// to ensure HTTP-only cookies flow naturally without third-party cookie restrictions.
+// On the server, connect directly to BACKEND_INTERNAL_URL or NEXT_PUBLIC_API_URL.
+const SERVER_API_BASE =
+  process.env.BACKEND_INTERNAL_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  'http://localhost:3001';
+
+const BROWSER_API_BASE = '/api/backend';
+
+function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    return BROWSER_API_BASE;
+  }
+  return SERVER_API_BASE;
+}
 
 type Primitive = string | number | boolean;
 type QueryValue = Primitive | undefined | null;
@@ -100,7 +115,8 @@ async function refreshSession(): Promise<boolean> {
     return refreshPromise;
   }
 
-  refreshPromise = fetch(`${API_BASE}/store/auth/refresh`, {
+  const base = getApiBase();
+  refreshPromise = fetch(`${base}/store/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(),
@@ -124,7 +140,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     ...rest
   } = options;
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const base = getApiBase();
+  const response = await fetch(`${base}${path}`, {
     ...rest,
     credentials,
     headers: buildHeaders(headers),
@@ -176,7 +193,7 @@ export async function apiDelete<T>(path: string) {
 }
 
 export async function apiGetServer<T>(path: string, query?: Record<string, QueryValue>) {
-  const response = await fetch(`${API_BASE}${appendQuery(path, query)}`, {
+  const response = await fetch(`${SERVER_API_BASE}${appendQuery(path, query)}`, {
     method: 'GET',
     cache: 'no-store',
     headers: buildHeaders(),

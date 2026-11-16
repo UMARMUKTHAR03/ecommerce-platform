@@ -111,6 +111,7 @@ export class ProductsService {
       where: { slug, isActive: true },
       relations: {
         category: true,
+        variants: true,
         reviews: true,
       },
     });

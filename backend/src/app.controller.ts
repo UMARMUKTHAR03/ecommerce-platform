@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppService } from './app.service';
 
@@ -15,7 +15,7 @@ export class AppController {
   }
 
   @Get('health')
-  async getHealth(): Promise<{ status: 'ok'; db: 'connected' | 'error'; timestamp: Date }> {
+  async getHealth(): Promise<{ status: 'ok'; db: 'connected'; timestamp: Date }> {
     try {
       await this.dataSource.query('SELECT 1');
 
@@ -24,12 +24,16 @@ export class AppController {
         db: 'connected',
         timestamp: new Date(),
       };
-    } catch {
-      return {
-        status: 'ok',
-        db: 'error',
-        timestamp: new Date(),
-      };
+    } catch (err) {
+      throw new HttpException(
+        {
+          status: 'error',
+          db: 'disconnected',
+          message: 'Database connectivity probe failed',
+          timestamp: new Date(),
+        },
+        HttpStatus.SERVICE_UNAVAILABLE, // HTTP 503
+      );
     }
   }
 }

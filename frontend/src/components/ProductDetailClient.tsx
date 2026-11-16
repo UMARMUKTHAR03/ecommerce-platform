@@ -5,7 +5,7 @@ import { SideBySideMagnifier } from 'react-image-magnifiers';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { apiDelete, apiPost } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
-import type { Product, Review } from '@/lib/types';
+import type { Product, ProductVariant, Review } from '@/lib/types';
 import { useCart } from '@/context/cart.context';
 import { EmptyState } from './EmptyState';
 import { PriceDisplay } from './PriceDisplay';
@@ -55,10 +55,34 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
   const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState(product.images[0] ?? '/images/placeholder-product.svg');
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState('M');
-  const [selectedColor, setSelectedColor] = useState('Charcoal');
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [wishlistState, setWishlistState] = useState<'idle' | 'loading' | 'added'>('idle');
+
+  const variants = useMemo(() => product.variants ?? [], [product.variants]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    variants.length ? variants[0].id : null,
+  );
+
+  const selectedVariant = useMemo(() => {
+    return variants.find((v) => v.id === selectedVariantId) ?? null;
+  }, [variants, selectedVariantId]);
+
+  const effectivePrice = useMemo(() => {
+    const base = Number(product.price);
+    const adj = selectedVariant ? Number(selectedVariant.priceAdjustment || 0) : 0;
+    return String(base + adj);
+  }, [product.price, selectedVariant]);
+
+  const effectiveDiscountPrice = useMemo(() => {
+    if (!product.discountPrice) return null;
+    const base = Number(product.discountPrice);
+    const adj = selectedVariant ? Number(selectedVariant.priceAdjustment || 0) : 0;
+    return String(base + adj);
+  }, [product.discountPrice, selectedVariant]);
+
+  const effectiveStock = useMemo(() => {
+    return selectedVariant ? selectedVariant.stock : product.stock;
+  }, [selectedVariant, product.stock]);
 
   const reviews = product.reviews ?? [];
   const rating = averageRating(reviews);
@@ -98,7 +122,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
       }));
   }, [reviews]);
 
-  const maxQuantity = Math.max(1, product.stock);
+  const maxQuantity = Math.max(1, effectiveStock);
 
   return (
     <div className="space-y-12">
@@ -143,58 +167,56 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
           <div className="flex items-center gap-4">
             <RatingStars rating={rating} count={reviews.length} />
-            <StockBadge stock={product.stock} />
+            <StockBadge stock={effectiveStock} />
           </div>
 
-          <PriceDisplay price={product.price} discountPrice={product.discountPrice} className="text-2xl" />
+          <PriceDisplay price={effectivePrice} discountPrice={effectiveDiscountPrice} className="text-2xl" />
 
           <p className="text-sm leading-7 text-muted">
             {product.description ?? 'Designed with premium materials for all-day comfort and consistent performance.'}
           </p>
 
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted">Size</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {['S', 'M', 'L', 'XL'].map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setSelectedSize(size)}
-                    className={[
-                      'rounded-full border px-3 py-1 text-xs font-semibold transition',
-                      selectedSize === size
-                        ? 'border-fg bg-fg text-bg'
-                        : 'border-outline bg-panel text-fg hover:border-fg/50',
-                    ].join(' ')}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Actual database variants selector */}
+          {variants.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-wide text-muted">Edition / Variant</p>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((v) => {
+                  const label = v.title || `${v.size || ''} ${v.color || ''}`.trim() || v.sku;
+                  const isSelected = v.id === selectedVariantId;
+                  const isOutOfStock = v.stock <= 0;
 
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted">Color</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {['Charcoal', 'Sand', 'Ocean'].map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setSelectedColor(color)}
-                    className={[
-                      'rounded-full border px-3 py-1 text-xs font-semibold transition',
-                      selectedColor === color
-                        ? 'border-fg bg-fg text-bg'
-                        : 'border-outline bg-panel text-fg hover:border-fg/50',
-                    ].join(' ')}
-                  >
-                    {color}
-                  </button>
-                ))}
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => {
+                        setSelectedVariantId(v.id);
+                        setQuantity(1);
+                      }}
+                      className={[
+                        'rounded-xl border px-3 py-2 text-xs font-semibold transition',
+                        isSelected
+                          ? 'border-fg bg-fg text-bg'
+                          : isOutOfStock
+                            ? 'border-outline bg-panel/50 text-muted line-through opacity-50'
+                            : 'border-outline bg-panel text-fg hover:border-fg/50',
+                      ].join(' ')}
+                    >
+                      <span>{label}</span>
+                      {Number(v.priceAdjustment) !== 0 ? (
+                        <span className="ml-1.5 opacity-80">
+                          ({Number(v.priceAdjustment) > 0 ? '+' : ''}{formatCurrency(Number(v.priceAdjustment))})
+                        </span>
+                      ) : null}
+                      <span className="ml-1.5 text-[10px] opacity-70">({v.stock} in stock)</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="flex items-center gap-3">
             <label htmlFor="quantity" className="text-sm text-muted">
@@ -217,8 +239,8 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
-              onClick={() => addItem(product, quantity)}
-              disabled={product.stock <= 0}
+              onClick={() => addItem(product, quantity, selectedVariant ?? undefined)}
+              disabled={effectiveStock <= 0}
               className="rounded-xl bg-fg px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add to Cart
@@ -252,60 +274,63 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         </div>
       </section>
 
-      <section className="space-y-4 rounded-3xl border border-outline bg-panel p-6">
+      <section className="space-y-6 rounded-3xl border border-outline bg-panel p-6">
         <div className="flex flex-wrap gap-2">
           <TabButton active={activeTab === 'description'} onClick={() => setActiveTab('description')}>
             Description
           </TabButton>
           <TabButton active={activeTab === 'specs'} onClick={() => setActiveTab('specs')}>
-            Specs
+            Specifications
           </TabButton>
           <TabButton active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')}>
-            Reviews
+            Reviews ({reviews.length})
           </TabButton>
         </div>
 
         {activeTab === 'description' ? (
-          <p className="text-sm leading-7 text-muted">
-            {product.description ??
-              'A premium build quality item with thoughtful ergonomics, balanced performance, and clean design language for everyday use.'}
-          </p>
-        ) : null}
-
-        {activeTab === 'specs' ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-outline bg-bg-elevated p-4">
-              <p className="text-xs uppercase tracking-wide text-muted">Material</p>
-              <p className="mt-1 text-sm font-medium text-fg">Premium Composite</p>
-            </div>
-            <div className="rounded-xl border border-outline bg-bg-elevated p-4">
-              <p className="text-xs uppercase tracking-wide text-muted">Warranty</p>
-              <p className="mt-1 text-sm font-medium text-fg">12 Months</p>
-            </div>
-            <div className="rounded-xl border border-outline bg-bg-elevated p-4">
-              <p className="text-xs uppercase tracking-wide text-muted">Shipping</p>
-              <p className="mt-1 text-sm font-medium text-fg">Nationwide 2-4 days</p>
-            </div>
-            <div className="rounded-xl border border-outline bg-bg-elevated p-4">
-              <p className="text-xs uppercase tracking-wide text-muted">Returns</p>
-              <p className="mt-1 text-sm font-medium text-fg">7-day replacement</p>
-            </div>
+          <div className="space-y-3 text-sm leading-7 text-muted">
+            <p>{product.description ?? 'No extended description provided.'}</p>
           </div>
         ) : null}
 
+        {activeTab === 'specs' ? (
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="rounded-xl border border-outline bg-bg-elevated p-3">
+              <dt className="text-xs uppercase text-muted">SKU Reference</dt>
+              <dd className="mt-1 font-semibold text-fg">{selectedVariant?.sku ?? product.slug}</dd>
+            </div>
+            <div className="rounded-xl border border-outline bg-bg-elevated p-3">
+              <dt className="text-xs uppercase text-muted">Inventory Available</dt>
+              <dd className="mt-1 font-semibold text-fg">{effectiveStock} units</dd>
+            </div>
+            <div className="rounded-xl border border-outline bg-bg-elevated p-3">
+              <dt className="text-xs uppercase text-muted">Category</dt>
+              <dd className="mt-1 font-semibold text-fg">{product.category?.name ?? 'Uncategorized'}</dd>
+            </div>
+            <div className="rounded-xl border border-outline bg-bg-elevated p-3">
+              <dt className="text-xs uppercase text-muted">Selected Variant</dt>
+              <dd className="mt-1 font-semibold text-fg">{selectedVariant?.title ?? 'Standard Edition'}</dd>
+            </div>
+          </dl>
+        ) : null}
+
         {activeTab === 'reviews' ? (
-          <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-            <div className="rounded-2xl border border-outline bg-bg-elevated p-5">
-              <p className="font-display text-4xl font-semibold text-fg">{rating.toFixed(1)}</p>
-              <RatingStars rating={rating} count={reviews.length} className="mt-2" />
-              <div className="mt-4 space-y-2">
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-[220px_1fr]">
+              <div className="space-y-2 rounded-2xl border border-outline bg-bg-elevated p-4 text-center">
+                <p className="font-display text-4xl font-bold text-fg">{rating.toFixed(1)}</p>
+                <RatingStars rating={rating} />
+                <p className="text-xs text-muted">Based on {reviews.length} reviews</p>
+              </div>
+
+              <div className="space-y-2">
                 {ratingBreakdown.map((row) => (
-                  <div key={row.score} className="grid grid-cols-[36px_1fr_30px] items-center gap-2 text-xs">
-                    <span className="text-muted">{row.score}★</span>
-                    <div className="h-2 rounded-full bg-outline">
-                      <div className="h-2 rounded-full bg-accent" style={{ width: `${row.percent}%` }} />
+                  <div key={row.score} className="flex items-center gap-3 text-xs text-muted">
+                    <span className="w-8">{row.score}★</span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-outline">
+                      <div className="h-full bg-brand" style={{ width: `${row.percent}%` }} />
                     </div>
-                    <span className="text-muted">{row.count}</span>
+                    <span className="w-8 text-right">{row.count}</span>
                   </div>
                 ))}
               </div>
@@ -314,18 +339,23 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             <div className="space-y-3">
               {reviews.length ? (
                 reviews.map((review) => (
-                  <article key={review.id} className="rounded-2xl border border-outline bg-bg-elevated p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-fg">{review.customer?.name ?? 'Verified Buyer'}</p>
+                  <article key={review.id} className="rounded-2xl border border-outline bg-bg-elevated p-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-fg">{review.customer?.name ?? 'Verified Buyer'}</p>
+                      <time className="text-xs text-muted">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </time>
+                    </div>
+                    <div className="mt-1">
                       <RatingStars rating={review.rating} />
                     </div>
-                    <p className="mt-2 text-sm text-muted">{review.body || 'Great quality and quick delivery.'}</p>
+                    <p className="mt-2 text-muted">{review.body ?? 'No review text provided.'}</p>
                   </article>
                 ))
               ) : (
                 <EmptyState
                   title="No reviews yet"
-                  description="Be the first to review this product after purchase."
+                  description="Be the first verified purchaser to leave feedback."
                 />
               )}
             </div>
@@ -333,45 +363,26 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         ) : null}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-brand">Related</p>
-            <h2 className="font-display text-2xl font-semibold text-fg">You Might Also Like</h2>
-          </div>
-        </div>
-
-        {relatedProducts.length ? (
+      {relatedProducts.length ? (
+        <section className="space-y-4">
+          <h2 className="font-display text-2xl font-semibold text-fg">Complete the Look</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {relatedProducts.map((item) => (
-              <a
-                key={item.id}
-                href={`/products/${item.slug}`}
-                className="group overflow-hidden rounded-2xl border border-outline bg-panel transition hover:-translate-y-1"
-              >
+              <article key={item.id} className="space-y-2 rounded-2xl border border-outline bg-panel p-4">
                 <Image
                   src={item.images[0] ?? '/images/placeholder-product.svg'}
                   alt={item.title}
-                  width={420}
-                  height={300}
-                  className="h-36 w-full object-cover"
+                  width={300}
+                  height={220}
+                  className="h-36 w-full rounded-xl object-cover"
                 />
-                <div className="space-y-1 p-3">
-                  <p className="line-clamp-2 text-sm font-semibold text-fg group-hover:text-brand">{item.title}</p>
-                  <p className="text-sm text-muted">{formatCurrency(item.discountPrice ?? item.price)}</p>
-                </div>
-              </a>
+                <h3 className="line-clamp-1 font-semibold text-fg">{item.title}</h3>
+                <PriceDisplay price={item.price} discountPrice={item.discountPrice} />
+              </article>
             ))}
           </div>
-        ) : (
-          <EmptyState
-            title="No related products right now"
-            description="Check back soon for more options in this category."
-            ctaLabel="Browse all"
-            ctaHref="/products"
-          />
-        )}
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

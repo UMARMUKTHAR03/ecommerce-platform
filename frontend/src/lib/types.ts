@@ -15,6 +15,17 @@ export interface Review {
   };
 }
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  sku: string;
+  title: string | null;
+  size: string | null;
+  color: string | null;
+  priceAdjustment: string;
+  stock: number;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -27,6 +38,7 @@ export interface Product {
   isActive: boolean;
   categoryId: string | null;
   category?: CategorySummary | null;
+  variants?: ProductVariant[];
   createdAt: string;
   updatedAt: string;
   reviews?: Review[];

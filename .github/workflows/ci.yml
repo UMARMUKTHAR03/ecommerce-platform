@@ -8,8 +8,24 @@ on:
 
 jobs:
   backend-test-and-build:
-    name: Backend Test & Build (NestJS)
+    name: Backend Test, E2E & Build (NestJS + PostgreSQL)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpassword123
+          POSTGRES_DB: bazaarflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,6 +41,25 @@ jobs:
 
       - name: Run Backend Unit Tests
         run: npm run test:backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-key-12345
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+
+      - name: Run Database Migrations on PostgreSQL Service
+        run: npm run migration:run
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
+          NODE_ENV: test
+
+      - name: Run Backend E2E Integration Tests
+        run: npm run test:backend:e2e
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
+          NODE_ENV: test
+          RUN_E2E: 'true'
+          JWT_SECRET: test-jwt-secret-key-12345
 
       - name: Build Backend Application
         run: npm run build:backend

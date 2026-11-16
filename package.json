@@ -2,14 +2,17 @@
   "name": "ecommerce-app",
   "version": "1.0.0",
   "private": true,
-  "description": "Top-class e-commerce monorepo (Next.js + NestJS + shared types)",
+  "description": "BazaarFlow LUXE e-commerce monorepo (Next.js + NestJS + shared types)",
   "scripts": {
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run start:dev --workspace backend",
     "build:frontend": "npm run build --workspace frontend",
     "build:backend": "npm run build --workspace backend",
     "lint:frontend": "npm run lint --workspace frontend",
-    "test:backend": "npm run test --workspace backend"
+    "test:backend": "npm run test --workspace backend",
+    "test:backend:e2e": "npm run test:e2e --workspace backend",
+    "start:backend": "npm run start:prod --workspace backend",
+    "migration:run": "npm run migration:run --workspace backend"
   },
   "workspaces": [
     "frontend",
@@ -22,6 +25,6 @@
     "nextjs",
     "nestjs"
   ],
-  "author": "",
+  "author": "Umar Mukthar",
   "license": "MIT"
 }
