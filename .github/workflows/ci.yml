@@ -56,7 +56,7 @@ jobs:
       - name: Run Backend E2E Integration Tests
         run: |
           mkdir -p reports
-          npx jest --config ./test/jest-e2e.json --runInBand --verbose --json --outputFile=./reports/jest-e2e.json
+          npx jest --config ./test/jest-e2e.json --runInBand --verbose 2>&1 | tee reports/e2e-raw.log
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
@@ -66,9 +66,11 @@ jobs:
           REFRESH_TOKEN_SECRET: test-refresh-token-secret-67890
           ADMIN_ALLOWED_IPS: '127.0.0.1,::1,::ffff:127.0.0.1'
 
-      - name: Report E2E Results
+      - name: Print E2E Execution Output
         if: always()
-        run: node ./test/report-e2e.js
+        run: |
+          echo "=== E2E Test Raw Output ==="
+          cat reports/e2e-raw.log || true
         working-directory: backend
 
       - name: Build Backend Application
