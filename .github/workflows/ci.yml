@@ -54,7 +54,10 @@ jobs:
           NODE_ENV: test
 
       - name: Run Backend E2E Integration Tests
-        run: npx jest --config ./test/jest-e2e.json --runInBand --verbose
+        run: |
+          mkdir -p reports
+          npx jest --config ./test/jest-e2e.json --runInBand --verbose --json --outputFile=./reports/jest-e2e.json || true
+          node ./test/report-e2e.js
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
