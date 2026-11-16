@@ -1,8 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import cookieParser from 'cookie-parser';
 import { App } from 'supertest/types';
 import { AppModule } from '../app.module';
+import { HttpExceptionFilter } from '../common/filters/http-exception.filter';
+import { SanitizeInterceptor } from '../common/interceptors/sanitize.interceptor';
+import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
+import { GlobalValidationPipe } from '../common/pipes/validation.pipe';
 
 const shouldRunE2E = process.env.RUN_E2E === 'true';
 
@@ -14,6 +19,10 @@ export async function createE2EApp(): Promise<INestApplication<App>> {
   }).compile();
 
   const app = moduleRef.createNestApplication();
+  app.use(cookieParser());
+  app.useGlobalInterceptors(new SanitizeInterceptor(), new TransformInterceptor());
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalPipes(new GlobalValidationPipe());
   await app.init();
   return app;
 }
