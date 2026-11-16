@@ -106,6 +106,7 @@ export class AuthController {
 
     return {
       customer: result.customer,
+      tokens: result.tokens,
     };
   }
 
