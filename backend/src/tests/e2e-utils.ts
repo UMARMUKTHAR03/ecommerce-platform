@@ -20,8 +20,6 @@ export async function createE2EApp(): Promise<INestApplication<App>> {
 
   const app = moduleRef.createNestApplication();
   app.use(cookieParser());
-  app.useGlobalInterceptors(new SanitizeInterceptor(), new TransformInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(new GlobalValidationPipe());
   await app.init();
   return app;
