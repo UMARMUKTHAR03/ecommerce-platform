@@ -54,7 +54,32 @@ jobs:
           NODE_ENV: test
 
       - name: Run Backend E2E Integration Tests
-        run: npx jest --config ./test/jest-e2e.json --runInBand --verbose
+        run: |
+          mkdir -p ../reports
+          npx jest --config ./test/jest-e2e.json --runInBand --verbose --json --outputFile=../reports/jest-e2e.json || JEST_EXIT=$?
+          node -e "
+            const fs = require('fs');
+            try {
+              const res = JSON.parse(fs.readFileSync('../reports/jest-e2e.json', 'utf8'));
+              console.log('=== E2E TEST SUMMARY ===');
+              console.log('Total Suites:', res.numTotalTestSuites, '| Passed:', res.numPassedTestSuites, '| Failed:', res.numFailedTestSuites);
+              console.log('Total Tests:', res.numTotalTests, '| Passed:', res.numPassedTests, '| Failed:', res.numFailedTests);
+              res.testResults.forEach(suite => {
+                if (suite.status === 'failed') {
+                  console.log('\nFAILED SUITE:', suite.name);
+                  suite.assertionResults.forEach(t => {
+                    if (t.status === 'failed') {
+                      console.log('  ❌ [TEST FAILED]:', t.fullName);
+                      console.log('     ', (t.failureMessages || []).join('\n     '));
+                    }
+                  });
+                }
+              });
+            } catch (err) {
+              console.error('Failed to parse test report:', err);
+            }
+          "
+          exit ${JEST_EXIT:-0}
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
