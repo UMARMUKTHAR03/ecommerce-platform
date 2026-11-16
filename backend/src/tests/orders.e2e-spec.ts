@@ -50,10 +50,12 @@ describeE2E('Orders E2E', () => {
 
   beforeAll(async () => {
     app = await createE2EApp();
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('POST /store/orders without auth -> 401', async () => {

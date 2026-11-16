@@ -14,10 +14,12 @@ describeE2E('Products E2E', () => {
 
   beforeAll(async () => {
     app = await createE2EApp();
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('GET /store/products -> 200 + paginated list', async () => {

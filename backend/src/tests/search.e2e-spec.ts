@@ -26,10 +26,12 @@ describeE2E('Search E2E', () => {
 
   beforeAll(async () => {
     app = await createE2EApp();
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('GET /store/search?q=test -> 200 + results array', async () => {

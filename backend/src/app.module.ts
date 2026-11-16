@@ -88,21 +88,26 @@ const loggerTransports: winston.transport[] = [
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres' as const,
-        url: configService.get<string>('DATABASE_URL'),
-        ssl: { rejectUnauthorized: false },
-        synchronize: false,
-        retryAttempts: configService.get<string>('DATABASE_URL') ? 10 : 0,
-        logging:
-          configService.get<string>('NODE_ENV') !== 'production'
+      useFactory: (configService: ConfigService) => {
+        const isProd = configService.get<string>('NODE_ENV') === 'production';
+        const dbUrl = configService.get<string>('DATABASE_URL');
+        const forceSsl = configService.get<string>('DATABASE_SSL') === 'true';
+
+        return {
+          type: 'postgres' as const,
+          url: dbUrl,
+          ssl: isProd || forceSsl ? { rejectUnauthorized: false } : false,
+          synchronize: false,
+          retryAttempts: dbUrl ? 5 : 0,
+          logging: !isProd
             ? ['error', 'warn', 'migration']
             : ['error', 'warn'],
-        maxQueryExecutionTime: 500,
-        logger: new TypeOrmPerformanceLogger(),
-        autoLoadEntities: true,
-        migrations: [join(__dirname, 'database', 'migrations', '*{.ts,.js}')],
-      }),
+          maxQueryExecutionTime: 500,
+          logger: new TypeOrmPerformanceLogger(),
+          autoLoadEntities: true,
+          migrations: [join(__dirname, 'database', 'migrations', '*{.ts,.js}')],
+        };
+      },
     }),
     ThrottlerModule.forRoot([
       {
