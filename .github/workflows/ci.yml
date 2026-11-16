@@ -54,12 +54,14 @@ jobs:
           NODE_ENV: test
 
       - name: Run Backend E2E Integration Tests
-        run: npm run test:backend:e2e -- --runInBand
+        run: npm run test:backend:e2e -- --runInBand --verbose
         env:
           DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
           NODE_ENV: test
           RUN_E2E: 'true'
           JWT_SECRET: test-jwt-secret-key-12345
+          REFRESH_TOKEN_SECRET: test-refresh-token-secret-67890
+          ADMIN_ALLOWED_IPS: '127.0.0.1,::1,::ffff:127.0.0.1'
 
       - name: Build Backend Application
         run: npm run build:backend
