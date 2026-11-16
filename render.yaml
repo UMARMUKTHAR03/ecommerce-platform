@@ -3,7 +3,7 @@ services:
     name: bazaarflow-backend
     env: node
     plan: free
-    region: oregon
+    region: singapore
     rootDir: .
     buildCommand: npm ci && npm run build:backend && npm run migration:run
     startCommand: npm run start:backend
