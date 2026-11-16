@@ -93,6 +93,7 @@ const loggerTransports: winston.transport[] = [
         url: configService.get<string>('DATABASE_URL'),
         ssl: { rejectUnauthorized: false },
         synchronize: false,
+        retryAttempts: configService.get<string>('DATABASE_URL') ? 10 : 0,
         logging:
           configService.get<string>('NODE_ENV') !== 'production'
             ? ['error', 'warn', 'migration']

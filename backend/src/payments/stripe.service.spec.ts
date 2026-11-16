@@ -1,8 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { PaymentStatus } from '../entities/payment.entity';
+import { OrderStatus } from '../entities/order.entity';
 
-describe('StripeService', () => {
+describe('StripeService Atomic Payment Finalization', () => {
   let service: StripeService;
   let mockConfigService: any;
   let mockOrdersService: any;
@@ -10,7 +11,17 @@ describe('StripeService', () => {
   let mockDataSource: any;
   let mockPaymentRepo: any;
   let mockOrderRepo: any;
+  let mockProductRepo: any;
+  let mockVariantRepo: any;
   let mockQueryRunner: any;
+
+  const mockOrder = {
+    id: 'order-123',
+    total: '500.00',
+    status: OrderStatus.PENDING,
+    customer: { email: 'customer@bazaarflow.com' },
+    items: [],
+  };
 
   beforeEach(() => {
     mockConfigService = {
@@ -21,13 +32,7 @@ describe('StripeService', () => {
       }),
     };
 
-    mockOrdersService = {
-      finalizePaidOrder: jest.fn().mockResolvedValue({
-        id: 'order-123',
-        customer: { email: 'customer@example.com' },
-      }),
-      markAsFailed: jest.fn().mockResolvedValue({ id: 'order-123' }),
-    };
+    mockOrdersService = {};
 
     mockEmailService = {
       sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
@@ -39,13 +44,21 @@ describe('StripeService', () => {
       create: jest.fn((data: any) => ({ id: 'payment-uuid', ...data })),
     };
 
-    mockOrderRepo = {
-      findOne: jest.fn().mockResolvedValue({
-        id: 'order-123',
-        total: '500.00',
-        customer: { email: 'customer@example.com' },
-      }),
+    const orderQb = {
+      setLock: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ ...mockOrder }),
     };
+
+    mockOrderRepo = {
+      findOne: jest.fn().mockResolvedValue({ ...mockOrder }),
+      save: jest.fn((o: any) => Promise.resolve(o)),
+      createQueryBuilder: jest.fn().mockReturnValue(orderQb),
+    };
+
+    mockProductRepo = { save: jest.fn() };
+    mockVariantRepo = { save: jest.fn() };
 
     mockQueryRunner = {
       connect: jest.fn().mockResolvedValue(undefined),
@@ -54,18 +67,24 @@ describe('StripeService', () => {
       rollbackTransaction: jest.fn().mockResolvedValue(undefined),
       release: jest.fn().mockResolvedValue(undefined),
       manager: {
-        getRepository: jest.fn().mockReturnValue(mockPaymentRepo),
+        getRepository: jest.fn((entity: any) => {
+          if (entity.name === 'Payment' || entity === 'Payment') return mockPaymentRepo;
+          if (entity.name === 'Order' || entity === 'Order') return mockOrderRepo;
+          if (entity.name === 'Product' || entity === 'Product') return mockProductRepo;
+          if (entity.name === 'ProductVariant' || entity === 'ProductVariant') return mockVariantRepo;
+          return mockOrderRepo;
+        }),
       },
     };
 
     mockDataSource = {
-      getRepository: jest.fn().mockReturnValue(mockOrderRepo),
       createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+      getRepository: jest.fn().mockReturnValue(mockPaymentRepo),
     };
 
     service = new StripeService(
       mockConfigService,
-      mockOrdersService,
+      mockOrdersService as any,
       mockEmailService,
       mockDataSource,
       mockPaymentRepo,
@@ -88,6 +107,26 @@ describe('StripeService', () => {
     );
   });
 
+  it('throws BadRequestException on currency mismatch', async () => {
+    const mockEvent = {
+      id: 'evt_currency_mismatch',
+      type: 'payment_intent.succeeded',
+      data: {
+        object: {
+          id: 'pi_test_cur',
+          amount: 50000,
+          currency: 'usd', // expected bdt
+          metadata: { orderId: 'order-123' },
+        },
+      },
+    };
+    (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
+
+    await expect(service.handleWebhook(Buffer.from('{}'), 'valid_sig')).rejects.toThrow(
+      'Stripe currency mismatch: expected bdt, got usd',
+    );
+  });
+
   it('throws BadRequestException on payment amount mismatch', async () => {
     const mockEvent = {
       id: 'evt_mismatch',
@@ -104,17 +143,12 @@ describe('StripeService', () => {
     (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
 
     // Order total is 500.00 BDT (50000 cents), but webhook amount is 10000 cents
-    mockOrderRepo.findOne.mockResolvedValue({
-      id: 'order-123',
-      total: '500.00',
-    });
-
     await expect(service.handleWebhook(Buffer.from('{}'), 'valid_sig')).rejects.toThrow(
-      'Payment amount mismatch between intent and order',
+      /Payment amount mismatch/,
     );
   });
 
-  it('processes payment_intent.succeeded idempotently', async () => {
+  it('processes payment_intent.succeeded atomically and commits single transaction', async () => {
     const mockEvent = {
       id: 'evt_123',
       type: 'payment_intent.succeeded',
@@ -131,18 +165,18 @@ describe('StripeService', () => {
     };
 
     (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
-
     mockPaymentRepo.findOne.mockResolvedValue(null);
 
     const res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
 
     expect(res.received).toBe(true);
-    expect(mockOrdersService.finalizePaidOrder).toHaveBeenCalledWith('order-123', 'pi_test_123');
+    expect(mockOrderRepo.save).toHaveBeenCalled();
+    expect(mockPaymentRepo.save).toHaveBeenCalled();
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     expect(mockEmailService.sendOrderConfirmation).toHaveBeenCalled();
   });
 
-  it('skips order finalization if payment was already recorded as COMPLETED', async () => {
+  it('handles duplicate payment_intent.succeeded idempotently without duplicate error', async () => {
     const mockEvent = {
       id: 'evt_123',
       type: 'payment_intent.succeeded',
@@ -169,10 +203,10 @@ describe('StripeService', () => {
     const res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
 
     expect(res.alreadyProcessed).toBe(true);
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
+    expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
   });
 
-  it('handles payment_intent.payment_failed and marks order failed', async () => {
+  it('handles payment_intent.payment_failed idempotently under duplicate deliveries', async () => {
     const mockEvent = {
       id: 'evt_failed',
       type: 'payment_intent.payment_failed',
@@ -187,10 +221,21 @@ describe('StripeService', () => {
     };
     (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
 
-    const res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
-
+    // First delivery
+    mockPaymentRepo.findOne.mockResolvedValue(null);
+    let res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
     expect(res.received).toBe(true);
-    expect(mockOrdersService.markAsFailed).toHaveBeenCalledWith('order-123');
     expect(mockPaymentRepo.save).toHaveBeenCalled();
+
+    // Repeated delivery with existing failed payment
+    mockPaymentRepo.findOne.mockResolvedValue({
+      id: 'failed-payment-id',
+      transactionId: 'pi_failed_123',
+      status: PaymentStatus.FAILED,
+    });
+
+    res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+    expect(res.received).toBe(true);
+    expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
   });
 });

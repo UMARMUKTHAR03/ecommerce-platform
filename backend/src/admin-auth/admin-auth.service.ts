@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { generateSecret, generateURI, verify } from 'otplib';
+import { generateSecret, generateURI, verify } from '../common/utils/totp';
 import { Admin, AdminRole } from '../entities/admin.entity';
 import { AdminLoginDto } from './dto/admin-login.dto';
 

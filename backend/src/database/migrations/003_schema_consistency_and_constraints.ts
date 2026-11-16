@@ -4,9 +4,19 @@ export class SchemaConsistencyAndConstraints0031711900000000 implements Migratio
   name = 'SchemaConsistencyAndConstraints0031711900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Ensure refresh_tokens table has both token and token_hash if needed, or normalize to token
-    // Our entity uses "token" varchar(512), while migration 000 created "token_hash".
-    // We add column "token" if it does not exist, and copy or preserve.
+    // 1. Ensure refresh_tokens table has column "token" varchar(512) and is_revoked
+    // If a legacy table exists with "token_hash" NOT NULL, make token_hash nullable or migrate it safely
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'refresh_tokens' AND column_name = 'token_hash'
+        ) THEN
+          ALTER TABLE "refresh_tokens" ALTER COLUMN "token_hash" DROP NOT NULL;
+        END IF;
+      END $$;
+    `);
+
     await queryRunner.query(`
       DO $$ BEGIN
         IF NOT EXISTS (
@@ -18,6 +28,18 @@ export class SchemaConsistencyAndConstraints0031711900000000 implements Migratio
       END $$;
     `);
 
+    // Migrate token_hash to token if token is null
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'refresh_tokens' AND column_name = 'token_hash'
+        ) THEN
+          UPDATE "refresh_tokens" SET "token" = "token_hash" WHERE "token" IS NULL;
+        END IF;
+      END $$;
+    `);
+
     await queryRunner.query(`
       DO $$ BEGIN
         IF NOT EXISTS (
@@ -25,6 +47,18 @@ export class SchemaConsistencyAndConstraints0031711900000000 implements Migratio
           WHERE table_name = 'refresh_tokens' AND column_name = 'is_revoked'
         ) THEN
           ALTER TABLE "refresh_tokens" ADD COLUMN "is_revoked" boolean NOT NULL DEFAULT false;
+        END IF;
+      END $$;
+    `);
+
+    // Migrate legacy revoked_at to is_revoked = true
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'refresh_tokens' AND column_name = 'revoked_at'
+        ) THEN
+          UPDATE "refresh_tokens" SET "is_revoked" = true WHERE "revoked_at" IS NOT NULL;
         END IF;
       END $$;
     `);

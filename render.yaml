@@ -5,8 +5,7 @@ services:
     plan: free
     region: oregon
     rootDir: .
-    buildCommand: npm ci && npm run build:backend
-    preDeployCommand: npm run migration:run
+    buildCommand: npm ci && npm run build:backend && npm run migration:run
     startCommand: npm run start:backend
     healthCheckPath: /health
     autoDeploy: true
@@ -25,12 +24,16 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: JWT_REFRESH_SECRET
+      - key: REFRESH_TOKEN_SECRET
         generateValue: true
       - key: ADMIN_EMAIL
         value: admin@bazaarflow.com
       - key: ADMIN_PASSWORD_HASH
         sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
+      - key: ADMIN_ALLOWED_IPS
+        value: 127.0.0.1
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -51,13 +54,15 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
-      - key: EMAIL_FROM
+      - key: SENDER_EMAIL
         value: orders@bazaarflow.com
+      - key: SENDER_NAME
+        value: BazaarFlow LUXE
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: MEILISEARCH_HOST
+      - key: MEILISEARCH_URL
         sync: false
       - key: MEILISEARCH_API_KEY
         sync: false

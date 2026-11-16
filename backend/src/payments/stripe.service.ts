@@ -5,6 +5,8 @@ import { DataSource, Repository } from 'typeorm';
 import Stripe from 'stripe';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
+import { Product } from '../entities/product.entity';
+import { ProductVariant } from '../entities/product-variant.entity';
 import { EmailService } from '../email/email.service';
 import { OrdersService } from '../orders/orders.service';
 
@@ -79,44 +81,59 @@ export class StripeService {
         return { received: true, ignored: 'missing_order_id' };
       }
 
-      // Check payment intent amount vs order total in DB
-      const expectedOrder = await this.dataSource.getRepository(Order).findOne({
-        where: { id: orderId },
-        relations: { customer: true },
-      });
-
-      if (!expectedOrder) {
-        this.logger.error(`Order ${orderId} referenced in PaymentIntent not found`);
-        throw new BadRequestException(`Order ${orderId} not found`);
+      // Check currency
+      const intentCurrency = (paymentIntent.currency || '').toLowerCase();
+      if (intentCurrency !== 'bdt') {
+        this.logger.error(`Stripe currency mismatch for order ${orderId}: expected bdt, got ${intentCurrency}`);
+        throw new BadRequestException(`Stripe currency mismatch: expected bdt, got ${intentCurrency}`);
       }
 
-      const expectedAmountInCents = Math.round(Number(expectedOrder.total) * 100);
-      if (paymentIntent.amount !== expectedAmountInCents) {
-        this.logger.error(
-          `Payment amount mismatch for order ${orderId}: expected ${expectedAmountInCents} cents, got ${paymentIntent.amount} cents`,
-        );
-        throw new BadRequestException('Payment amount mismatch between intent and order');
-      }
-
-      // Perform atomic idempotent payment registration inside transaction with row lock
+      // Atomic payment finalization inside a single database transaction
       const queryRunner = this.dataSource.createQueryRunner();
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
       try {
+        const orderRepo = queryRunner.manager.getRepository(Order);
         const paymentRepo = queryRunner.manager.getRepository(Payment);
+
+        // Lock order row to prevent race conditions
+        const order = await orderRepo
+          .createQueryBuilder('o')
+          .setLock('pessimistic_write')
+          .leftJoinAndSelect('o.customer', 'customer')
+          .leftJoinAndSelect('o.items', 'items')
+          .where('o.id = :id', { id: orderId })
+          .getOne();
+
+        if (!order) {
+          throw new BadRequestException(`Order ${orderId} not found`);
+        }
+
+        const expectedAmountInCents = Math.round(Number(order.total) * 100);
+        if (paymentIntent.amount !== expectedAmountInCents) {
+          throw new BadRequestException(
+            `Payment amount mismatch: expected ${expectedAmountInCents} cents, received ${paymentIntent.amount} cents`,
+          );
+        }
+
+        // Check if payment already completed
         const existingPayment = await paymentRepo.findOne({
           where: { transactionId: paymentIntent.id },
         });
 
         if (existingPayment && existingPayment.status === PaymentStatus.COMPLETED) {
-          this.logger.log(`Payment ${paymentIntent.id} already processed for order ${orderId}`);
+          this.logger.log(`Payment ${paymentIntent.id} already completed for order ${orderId}`);
           await queryRunner.rollbackTransaction();
           return { received: true, alreadyProcessed: true };
         }
 
-        const paidOrder = await this.ordersService.finalizePaidOrder(orderId, paymentIntent.id);
+        // Update Order in same transaction
+        order.status = OrderStatus.PAID;
+        order.paymentReference = paymentIntent.id;
+        await orderRepo.save(order);
 
+        // Insert or update payment record
         if (existingPayment) {
           existingPayment.status = PaymentStatus.COMPLETED;
           existingPayment.rawPayload = event as unknown as Record<string, unknown>;
@@ -127,7 +144,7 @@ export class StripeService {
             provider: 'stripe',
             transactionId: paymentIntent.id,
             amount: (paymentIntent.amount / 100).toFixed(2),
-            currency: (paymentIntent.currency || 'bdt').toUpperCase(),
+            currency: 'BDT',
             status: PaymentStatus.COMPLETED,
             rawPayload: event as unknown as Record<string, unknown>,
           });
@@ -135,17 +152,13 @@ export class StripeService {
         }
 
         await queryRunner.commitTransaction();
+        this.logger.log(`Stripe payment succeeded and committed for order ${orderId}`);
 
-        this.logger.log(`Stripe payment succeeded and recorded for order ${orderId}`);
-
-        if (paidOrder.customer?.email) {
+        if (order.customer?.email) {
           this.emailService
-            .sendOrderConfirmation(paidOrder, paidOrder.customer)
+            .sendOrderConfirmation(order, order.customer)
             .catch((error: unknown) => {
-              this.logger.warn(
-                `Order confirmation email failed for order ${paidOrder.id}`,
-                error instanceof Error ? error.stack : undefined,
-              );
+              this.logger.warn(`Order confirmation email failed for order ${order.id}`, error);
             });
         }
       } catch (err) {
@@ -161,20 +174,69 @@ export class StripeService {
       const orderId = paymentIntent.metadata?.orderId;
 
       if (orderId) {
-        await this.ordersService.markAsFailed(orderId);
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
 
-        const paymentRecord = this.paymentRepository.create({
-          orderId,
-          provider: 'stripe',
-          transactionId: paymentIntent.id,
-          amount: (paymentIntent.amount / 100).toFixed(2),
-          currency: (paymentIntent.currency || 'bdt').toUpperCase(),
-          status: PaymentStatus.FAILED,
-          rawPayload: event as unknown as Record<string, unknown>,
-        });
-        await this.paymentRepository.save(paymentRecord);
+        try {
+          const orderRepo = queryRunner.manager.getRepository(Order);
+          const paymentRepo = queryRunner.manager.getRepository(Payment);
 
-        this.logger.warn(`Stripe payment failed recorded for order ${orderId}`);
+          const order = await orderRepo.findOne({
+            where: { id: orderId },
+            relations: { items: { product: true, variant: true } },
+          });
+
+          if (order && order.status !== OrderStatus.CANCELLED) {
+            order.status = OrderStatus.CANCELLED;
+            await orderRepo.save(order);
+
+            // Restore stock in same transaction
+            const prodRepo = queryRunner.manager.getRepository(Product);
+            const varRepo = queryRunner.manager.getRepository(ProductVariant);
+
+            for (const item of order.items) {
+              if (item.product) {
+                item.product.stock += item.quantity;
+                await prodRepo.save(item.product);
+              }
+              if (item.variant) {
+                item.variant.stock += item.quantity;
+                await varRepo.save(item.variant);
+              }
+            }
+          }
+
+          // Check if payment with transaction_id already recorded (e.g. previous failure)
+          const existingPayment = await paymentRepo.findOne({
+            where: { transactionId: paymentIntent.id },
+          });
+
+          if (existingPayment) {
+            existingPayment.status = PaymentStatus.FAILED;
+            existingPayment.rawPayload = event as unknown as Record<string, unknown>;
+            await paymentRepo.save(existingPayment);
+          } else {
+            const paymentRecord = paymentRepo.create({
+              orderId,
+              provider: 'stripe',
+              transactionId: paymentIntent.id,
+              amount: (paymentIntent.amount / 100).toFixed(2),
+              currency: (paymentIntent.currency || 'bdt').toUpperCase(),
+              status: PaymentStatus.FAILED,
+              rawPayload: event as unknown as Record<string, unknown>,
+            });
+            await paymentRepo.save(paymentRecord);
+          }
+
+          await queryRunner.commitTransaction();
+          this.logger.warn(`Stripe payment failed transaction committed for order ${orderId}`);
+        } catch (err) {
+          await queryRunner.rollbackTransaction();
+          throw err;
+        } finally {
+          await queryRunner.release();
+        }
       }
     }
 

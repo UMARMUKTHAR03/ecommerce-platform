@@ -222,43 +222,47 @@ export class InitialSchema0001711700000000 implements MigrationInterface {
       );
     `);
 
-    // 11. refresh_tokens
+    // 11. refresh_tokens (Aligned: token varchar(512) and is_revoked boolean)
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "refresh_tokens" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "token_hash" character varying(255) NOT NULL,
+        "token" character varying(512) NOT NULL,
         "customer_id" uuid NOT NULL,
         "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL,
-        "revoked_at" TIMESTAMP WITH TIME ZONE,
+        "is_revoked" boolean NOT NULL DEFAULT false,
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_refresh_tokens_token" UNIQUE ("token"),
         CONSTRAINT "pk_refresh_tokens" PRIMARY KEY ("id"),
         CONSTRAINT "fk_refresh_tokens_customer" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE
       );
     `);
 
-    // 12. reviews
+    // 12. reviews (Aligned: body text, is_verified boolean, rating check, unique customer+product)
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "reviews" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "customer_id" uuid NOT NULL,
         "product_id" uuid NOT NULL,
         "rating" integer NOT NULL,
-        "comment" text,
-        "is_approved" boolean NOT NULL DEFAULT true,
+        "body" text,
+        "is_verified" boolean NOT NULL DEFAULT false,
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT "chk_review_rating_range" CHECK (rating >= 1 AND rating <= 5),
+        CONSTRAINT "uq_reviews_customer_product" UNIQUE ("customer_id", "product_id"),
         CONSTRAINT "pk_reviews" PRIMARY KEY ("id"),
         CONSTRAINT "fk_reviews_customer" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE,
         CONSTRAINT "fk_reviews_product" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE
       );
     `);
 
-    // 13. wishlists
+    // 13. wishlists (Aligned: unique customer+product)
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "wishlists" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "customer_id" uuid NOT NULL,
         "product_id" uuid NOT NULL,
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_wishlists_customer_product" UNIQUE ("customer_id", "product_id"),
         CONSTRAINT "pk_wishlists" PRIMARY KEY ("id"),
         CONSTRAINT "fk_wishlists_customer" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE,
         CONSTRAINT "fk_wishlists_product" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE
@@ -276,6 +280,7 @@ export class InitialSchema0001711700000000 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_orders_status" ON "orders" ("status");`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_payments_order_id" ON "payments" ("order_id");`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_payments_transaction_id" ON "payments" ("transaction_id");`);
+    await queryRunner.query(`CREATE UNIQUE INDEX IF NOT EXISTS "uq_payments_transaction_id" ON "payments" ("transaction_id") WHERE "transaction_id" IS NOT NULL;`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

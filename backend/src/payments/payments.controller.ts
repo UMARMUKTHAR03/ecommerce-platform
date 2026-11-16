@@ -115,6 +115,7 @@ export class PaymentsController {
     @Body() dto: ExecuteBkashPaymentDto,
   ) {
     const customerId = this.extractCustomerId(user);
+
     // 1. Verify ownership of order
     const order = await this.ordersService.getOrderForPayment(dto.orderId, customerId);
 
@@ -132,21 +133,25 @@ export class PaymentsController {
     }
 
     // 3. Query transaction status from bKash provider to verify amount and status
-    const queryStatus = await this.bkashService.queryPayment(dto.paymentId);
-    if (!this.isBkashSuccess(queryStatus)) {
+    let txnPayload = await this.bkashService.queryPayment(dto.paymentId);
+
+    if (!this.isTransactionCompleted(txnPayload)) {
       // Execute payment through tokenized API
-      const execution = await this.bkashService.executePayment(dto.paymentId);
-      if (!this.isBkashSuccess(execution)) {
-        throw new BadRequestException('bKash payment execution was not successful');
+      txnPayload = await this.bkashService.executePayment(dto.paymentId);
+      if (!this.isTransactionCompleted(txnPayload)) {
+        throw new BadRequestException('bKash payment transaction is not completed or failed');
       }
     }
 
-    // 4. Finalize paid order and record payment record idempotently
+    // 4. Validate exact amount, currency, order reference, and payment ID
+    this.validateBkashTransaction(txnPayload, order, dto.paymentId);
+
+    // 5. Finalize paid order and record payment record idempotently
     const paidOrder = await this.ordersService.finalizePaidOrder(dto.orderId, dto.paymentId);
 
     if (existingPayment) {
       existingPayment.status = PaymentStatus.COMPLETED;
-      existingPayment.rawPayload = queryStatus;
+      existingPayment.rawPayload = txnPayload;
       await this.paymentRepository.save(existingPayment);
     } else {
       const paymentRecord = this.paymentRepository.create({
@@ -156,7 +161,7 @@ export class PaymentsController {
         amount: Number(paidOrder.total).toFixed(2),
         currency: 'BDT',
         status: PaymentStatus.COMPLETED,
-        rawPayload: queryStatus,
+        rawPayload: txnPayload,
       });
       await this.paymentRepository.save(paymentRecord);
     }
@@ -203,15 +208,51 @@ export class PaymentsController {
     return customerId;
   }
 
-  private isBkashSuccess(payload: Record<string, unknown>) {
+  private isTransactionCompleted(payload: Record<string, unknown>): boolean {
     const statusCode = String(payload?.statusCode ?? '');
-    const transactionStatus = String(payload?.transactionStatus ?? payload?.status ?? '');
+    const transactionStatus = String(payload?.transactionStatus ?? payload?.status ?? '').toLowerCase();
 
-    if (statusCode === '0000') {
+    // In bKash tokenized API:
+    // statusCode "0000" and transactionStatus "Completed" or "Initiated/Success"
+    if (statusCode === '0000' && (transactionStatus === 'completed' || transactionStatus === 'success')) {
       return true;
     }
 
-    const normalized = transactionStatus.toLowerCase();
-    return normalized === 'completed' || normalized === 'success';
+    return transactionStatus === 'completed';
+  }
+
+  private validateBkashTransaction(
+    payload: Record<string, unknown>,
+    order: { id: string; total: string },
+    paymentId: string,
+  ) {
+    // A. Match paymentID
+    const returnedPaymentId = String(payload.paymentID ?? payload.paymentId ?? '');
+    if (returnedPaymentId && returnedPaymentId !== paymentId) {
+      throw new BadRequestException('bKash payment ID mismatch');
+    }
+
+    // B. Match Merchant Invoice / Order reference
+    const merchantInvoice = String(
+      payload.merchantInvoiceNumber ?? payload.merchantInvoice ?? payload.payerReference ?? '',
+    );
+    if (merchantInvoice && merchantInvoice !== order.id) {
+      throw new BadRequestException('bKash merchant invoice does not match order ID');
+    }
+
+    // C. Match Currency
+    const currency = String(payload.currency ?? 'BDT').toUpperCase();
+    if (currency !== 'BDT') {
+      throw new BadRequestException(`bKash currency mismatch: expected BDT, received ${currency}`);
+    }
+
+    // D. Match Amount
+    const paidAmount = Number(payload.amount ?? 0);
+    const expectedAmount = Number(order.total);
+    if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+      throw new BadRequestException(
+        `bKash amount mismatch: expected ${expectedAmount}, received ${paidAmount}`,
+      );
+    }
   }
 }
