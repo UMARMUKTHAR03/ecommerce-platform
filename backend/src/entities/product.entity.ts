@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Category } from './category.entity';
 import { OrderItem } from './order-item.entity';
+import { ProductVariant } from './product-variant.entity';
 import { Review } from './review.entity';
 
 @Entity({ name: 'products' })
@@ -53,6 +54,9 @@ export class Product {
   })
   @JoinColumn({ name: 'category_id' })
   category!: Category | null;
+
+  @OneToMany(() => ProductVariant, (variant) => variant.product, { cascade: true })
+  variants!: ProductVariant[];
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.product)
   orderItems!: OrderItem[];

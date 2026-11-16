@@ -6,6 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Address } from './address.entity';
 import { Order } from './order.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { Review } from './review.entity';
@@ -46,6 +47,9 @@ export class Customer {
 
   @OneToMany(() => Order, (order) => order.customer)
   orders!: Order[];
+
+  @OneToMany(() => Address, (address) => address.customer)
+  addresses!: Address[];
 
   @OneToMany(() => Review, (review) => review.customer)
   reviews!: Review[];

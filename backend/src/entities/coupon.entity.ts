@@ -1,5 +1,6 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -26,6 +27,9 @@ export class Coupon {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   value!: string;
 
+  @Column({ name: 'min_spend', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  minSpend!: string | null;
+
   @Column({ name: 'usage_limit', type: 'int', nullable: true })
   usageLimit!: number | null;
 
@@ -37,4 +41,7 @@ export class Coupon {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt!: Date;
 }

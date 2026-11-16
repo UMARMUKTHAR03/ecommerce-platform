@@ -11,9 +11,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CustomerJwtGuard } from '../common/guards/customer-jwt.guard';
+import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { EmailService } from '../email/email.service';
 import { OrdersService } from '../orders/orders.service';
 import { BkashService } from './bkash.service';
@@ -30,6 +33,8 @@ export class PaymentsController {
     private readonly bkashService: BkashService,
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
   ) {}
 
   @Post('stripe/create-intent')
@@ -108,6 +113,28 @@ export class PaymentsController {
 
     if (this.isBkashSuccess(execution)) {
       const paidOrder = await this.ordersService.finalizePaidOrder(dto.orderId, dto.paymentId);
+
+      // Record payment entity
+      const existingPayment = await this.paymentRepository.findOne({
+        where: { transactionId: dto.paymentId },
+      });
+
+      if (existingPayment) {
+        existingPayment.status = PaymentStatus.COMPLETED;
+        existingPayment.rawPayload = execution;
+        await this.paymentRepository.save(existingPayment);
+      } else {
+        const paymentRecord = this.paymentRepository.create({
+          orderId: dto.orderId,
+          provider: 'bkash',
+          transactionId: dto.paymentId,
+          amount: Number(paidOrder.total).toFixed(2),
+          currency: 'BDT',
+          status: PaymentStatus.COMPLETED,
+          rawPayload: execution,
+        });
+        await this.paymentRepository.save(paymentRecord);
+      }
 
       if (paidOrder.customer?.email) {
         this.emailService

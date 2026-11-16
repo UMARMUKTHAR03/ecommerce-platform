@@ -1,12 +1,14 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Order } from './order.entity';
 import { Product } from './product.entity';
+import { ProductVariant } from './product-variant.entity';
 
 @Entity({ name: 'order_items' })
 export class OrderItem {
@@ -25,6 +27,10 @@ export class OrderItem {
   @Column({ name: 'product_id', type: 'uuid' })
   productId!: string;
 
+  @Index('idx_order_items_variant_id')
+  @Column({ name: 'variant_id', type: 'uuid', nullable: true })
+  variantId!: string | null;
+
   @ManyToOne(() => Order, (order) => order.items, {
     onDelete: 'CASCADE',
   })
@@ -36,4 +42,11 @@ export class OrderItem {
   })
   @JoinColumn({ name: 'product_id' })
   product!: Product;
+
+  @ManyToOne(() => ProductVariant, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'variant_id' })
+  variant!: ProductVariant | null;
 }

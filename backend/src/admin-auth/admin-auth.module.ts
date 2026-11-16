@@ -1,14 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminJwtGuard } from '../common/guards/admin-jwt.guard';
 import { IpWhitelistGuard } from '../common/guards/ip-whitelist.guard';
+import { Admin } from '../entities/admin.entity';
 import { AdminAuthController } from './admin-auth.controller';
 import { AdminAuthService } from './admin-auth.service';
 
 @Module({
   imports: [
     ConfigModule,
+    TypeOrmModule.forFeature([Admin]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

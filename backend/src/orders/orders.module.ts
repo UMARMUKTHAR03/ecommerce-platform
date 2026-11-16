@@ -3,15 +3,26 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminJwtGuard } from '../common/guards/admin-jwt.guard';
 import { CustomerJwtGuard } from '../common/guards/customer-jwt.guard';
 import { IpWhitelistGuard } from '../common/guards/ip-whitelist.guard';
+import { Address } from '../entities/address.entity';
 import { Coupon } from '../entities/coupon.entity';
 import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { Product } from '../entities/product.entity';
+import { ProductVariant } from '../entities/product-variant.entity';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, Product, Coupon])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Order,
+      OrderItem,
+      Product,
+      ProductVariant,
+      Coupon,
+      Address,
+    ]),
+  ],
   controllers: [OrdersController],
   providers: [OrdersService, AdminJwtGuard, CustomerJwtGuard, IpWhitelistGuard],
   exports: [OrdersService],

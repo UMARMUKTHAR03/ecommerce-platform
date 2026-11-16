@@ -5,11 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { Address } from '../entities/address.entity';
 import { Coupon, CouponType } from '../entities/coupon.entity';
-import { Order, OrderStatus } from '../entities/order.entity';
+import { Order, OrderStatus, ShippingAddressSnapshot } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { Product } from '../entities/product.entity';
+import { ProductVariant } from '../entities/product-variant.entity';
 import { EmailService } from '../email/email.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -19,103 +21,203 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductVariant)
+    private readonly productVariantRepository: Repository<ProductVariant>,
     @InjectRepository(Coupon)
     private readonly couponRepository: Repository<Coupon>,
+    @InjectRepository(Address)
+    private readonly addressRepository: Repository<Address>,
     private readonly emailService: EmailService,
   ) {}
 
   async createOrder(customerId: string, dto: CreateOrderDto) {
-    if (dto.items.length === 0) {
+    if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Order must include at least one item');
     }
 
-    const uniqueProductIds = [...new Set(dto.items.map((item) => item.productId))];
-    const products = await this.productRepository.findBy({
-      id: In(uniqueProductIds),
-      isActive: true,
-    });
-
-    if (products.length !== uniqueProductIds.length) {
-      throw new BadRequestException('One or more products are unavailable');
-    }
-
-    const productMap = new Map(products.map((product) => [product.id, product]));
-
-    let subtotal = 0;
-    const orderItemsPayload: Array<{ productId: string; quantity: number; price: string }> = [];
-
-    for (const item of dto.items) {
-      const product = productMap.get(item.productId);
-
-      if (!product) {
-        throw new BadRequestException(`Product ${item.productId} was not found`);
-      }
-
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(`Insufficient stock for product: ${product.title}`);
-      }
-
-      const unitPrice = Number(product.discountPrice ?? product.price);
-      subtotal += unitPrice * item.quantity;
-
-      orderItemsPayload.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: unitPrice.toFixed(2),
+    // Determine shipping snapshot
+    let shippingSnapshot: ShippingAddressSnapshot;
+    if (dto.shippingAddress && dto.shippingAddress.fullName && dto.shippingAddress.streetAddress) {
+      shippingSnapshot = {
+        fullName: dto.shippingAddress.fullName,
+        phone: dto.shippingAddress.phone,
+        streetAddress: dto.shippingAddress.streetAddress,
+        city: dto.shippingAddress.city,
+        postalCode: dto.shippingAddress.postalCode,
+        country: dto.shippingAddress.country || 'Bangladesh',
+      };
+    } else if (dto.addressId) {
+      const savedAddress = await this.addressRepository.findOne({
+        where: { id: dto.addressId, customerId },
       });
+      if (savedAddress) {
+        shippingSnapshot = {
+          fullName: savedAddress.fullName,
+          phone: savedAddress.phone,
+          streetAddress: savedAddress.streetAddress,
+          city: savedAddress.city,
+          postalCode: savedAddress.postalCode ?? undefined,
+          country: savedAddress.country,
+        };
+      } else {
+        // Fallback for custom formatted address string from UI
+        shippingSnapshot = {
+          fullName: 'Customer',
+          phone: '',
+          streetAddress: dto.addressId,
+          city: 'Dhaka',
+          country: 'Bangladesh',
+        };
+      }
+    } else {
+      shippingSnapshot = {
+        fullName: 'Customer',
+        phone: '',
+        streetAddress: 'Default Address',
+        city: 'Dhaka',
+        country: 'Bangladesh',
+      };
     }
 
-    const { coupon, discountAmount } = await this.calculateDiscount(dto.couponCode, subtotal);
-    const total = Math.max(subtotal - discountAmount, 0);
+    const deliveryMethod = dto.deliveryMethod === 'express' ? 'express' : 'standard';
+    const shippingFee = deliveryMethod === 'express' ? 220 : 120;
 
-    const order = this.orderRepository.create({
-      customerId,
-      status: OrderStatus.PENDING,
-      total: total.toFixed(2),
-      paymentMethod: dto.paymentMethod,
-      paymentReference: null,
-    });
+    // Run inside database transaction with row locks for atomic stock verification
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedOrder = await this.orderRepository.save(order);
+    try {
+      let subtotal = 0;
+      const orderItemsToSave: Array<{
+        productId: string;
+        variantId: string | null;
+        quantity: number;
+        price: string;
+      }> = [];
 
-    const orderItems = orderItemsPayload.map((item) =>
-      this.orderItemRepository.create({
-        ...item,
-        orderId: savedOrder.id,
-      }),
-    );
+      for (const item of dto.items) {
+        // Pessimistic write lock on product to prevent overselling
+        const product = await queryRunner.manager
+          .createQueryBuilder(Product, 'p')
+          .setLock('pessimistic_write')
+          .where('p.id = :id AND p.is_active = true', { id: item.productId })
+          .getOne();
 
-    await this.orderItemRepository.save(orderItems);
+        if (!product) {
+          throw new BadRequestException(`Product ${item.productId} was not found or is inactive`);
+        }
 
-    if (coupon) {
-      coupon.usedCount += 1;
-      await this.couponRepository.save(coupon);
-    }
+        let unitPrice = Number(product.discountPrice ?? product.price);
 
-    const createdOrder = await this.orderRepository.findOne({
-      where: { id: savedOrder.id },
-      relations: {
-        items: {
-          product: true,
+        if (item.variantId) {
+          const variant = await queryRunner.manager
+            .createQueryBuilder(ProductVariant, 'v')
+            .setLock('pessimistic_write')
+            .where('v.id = :vId AND v.product_id = :pId', {
+              vId: item.variantId,
+              pId: product.id,
+            })
+            .getOne();
+
+          if (!variant) {
+            throw new BadRequestException(`Variant ${item.variantId} not found for product ${product.title}`);
+          }
+
+          if (variant.stock < item.quantity) {
+            throw new BadRequestException(`Insufficient stock for variant ${variant.sku || variant.title}`);
+          }
+
+          unitPrice += Number(variant.priceAdjustment || 0);
+          variant.stock -= item.quantity;
+          await queryRunner.manager.save(variant);
+        } else {
+          if (product.stock < item.quantity) {
+            throw new BadRequestException(`Insufficient stock for product: ${product.title}`);
+          }
+        }
+
+        // Decrement overall product stock
+        product.stock -= item.quantity;
+        await queryRunner.manager.save(product);
+
+        subtotal += unitPrice * item.quantity;
+
+        orderItemsToSave.push({
+          productId: product.id,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+          price: unitPrice.toFixed(2),
+        });
+      }
+
+      // Coupon calculation
+      const { coupon, discountAmount } = await this.calculateDiscount(
+        dto.couponCode,
+        subtotal,
+        queryRunner.manager.getRepository(Coupon),
+      );
+
+      const total = Math.max(subtotal - discountAmount + shippingFee, 0);
+
+      const order = queryRunner.manager.create(Order, {
+        customerId,
+        status: OrderStatus.PENDING,
+        subtotal: subtotal.toFixed(2),
+        shippingFee: shippingFee.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        total: total.toFixed(2),
+        deliveryMethod,
+        shippingAddress: shippingSnapshot,
+        paymentMethod: dto.paymentMethod,
+        paymentReference: null,
+      });
+
+      const savedOrder = await queryRunner.manager.save(order);
+
+      const orderItems = orderItemsToSave.map((oi) =>
+        queryRunner.manager.create(OrderItem, {
+          ...oi,
+          orderId: savedOrder.id,
+        }),
+      );
+      await queryRunner.manager.save(orderItems);
+
+      if (coupon) {
+        coupon.usedCount += 1;
+        await queryRunner.manager.save(coupon);
+      }
+
+      await queryRunner.commitTransaction();
+
+      const createdOrder = await this.orderRepository.findOne({
+        where: { id: savedOrder.id },
+        relations: {
+          items: {
+            product: true,
+            variant: true,
+          },
         },
-      },
-    });
+      });
 
-    if (!createdOrder) {
-      throw new NotFoundException('Created order could not be loaded');
+      if (!createdOrder) {
+        throw new NotFoundException('Created order could not be loaded');
+      }
+
+      return createdOrder;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-
-    return {
-      ...createdOrder,
-      discountAmount: discountAmount.toFixed(2),
-      addressId: dto.addressId,
-    };
   }
 
   async getMyOrders(customerId: string, page = 1, limit = 20) {
@@ -124,6 +226,7 @@ export class OrdersService {
       relations: {
         items: {
           product: true,
+          variant: true,
         },
       },
       order: {
@@ -154,6 +257,7 @@ export class OrdersService {
         customer: true,
         items: {
           product: true,
+          variant: true,
         },
       },
     });
@@ -175,6 +279,7 @@ export class OrdersService {
         customer: true,
         items: {
           product: true,
+          variant: true,
         },
       },
     });
@@ -192,6 +297,7 @@ export class OrdersService {
       .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'item')
       .leftJoinAndSelect('item.product', 'product')
+      .leftJoinAndSelect('item.variant', 'variant')
       .orderBy('order.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -220,6 +326,7 @@ export class OrdersService {
         customer: true,
         items: {
           product: true,
+          variant: true,
         },
       },
     });
@@ -239,6 +346,12 @@ export class OrdersService {
     }
 
     const previousStatus = order.status;
+
+    // Handle cancellation: restore inventory if cancelled
+    if (dto.status === OrderStatus.CANCELLED && previousStatus !== OrderStatus.CANCELLED) {
+      await this.restoreOrderInventory(order.id);
+    }
+
     order.status = dto.status;
     const saved = await this.orderRepository.save(order);
     this.logger.log(`Order status updated: ${saved.id} ${previousStatus} -> ${saved.status}`);
@@ -283,9 +396,14 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    order.status = OrderStatus.CANCELLED;
-    this.logger.warn(`Order marked as failed/cancelled: ${order.id}`);
-    return this.orderRepository.save(order);
+    if (order.status !== OrderStatus.CANCELLED) {
+      await this.restoreOrderInventory(order.id);
+      order.status = OrderStatus.CANCELLED;
+      this.logger.warn(`Order marked as failed/cancelled: ${order.id}`);
+      return this.orderRepository.save(order);
+    }
+
+    return order;
   }
 
   async finalizePaidOrder(orderId: string, paymentReference: string | null) {
@@ -295,6 +413,7 @@ export class OrdersService {
         customer: true,
         items: {
           product: true,
+          variant: true,
         },
       },
     });
@@ -316,28 +435,6 @@ export class OrdersService {
       throw new BadRequestException('Cancelled orders cannot be marked as paid');
     }
 
-    const updates: Product[] = [];
-
-    for (const item of order.items) {
-      const product = item.product;
-      if (!product) {
-        continue;
-      }
-
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock while finalizing payment for ${product.title}`,
-        );
-      }
-
-      product.stock -= item.quantity;
-      updates.push(product);
-    }
-
-    if (updates.length) {
-      await this.productRepository.save(updates);
-    }
-
     order.status = OrderStatus.PAID;
     order.paymentReference = paymentReference;
     this.logger.log(`Order finalized as paid: ${order.id}`);
@@ -345,7 +442,30 @@ export class OrdersService {
     return this.orderRepository.save(order);
   }
 
-  private async calculateDiscount(couponCode: string | undefined, subtotal: number) {
+  private async restoreOrderInventory(orderId: string) {
+    const items = await this.orderItemRepository.find({
+      where: { orderId },
+      relations: { product: true, variant: true },
+    });
+
+    for (const item of items) {
+      if (item.product) {
+        item.product.stock += item.quantity;
+        await this.productRepository.save(item.product);
+      }
+      if (item.variant) {
+        item.variant.stock += item.quantity;
+        await this.productVariantRepository.save(item.variant);
+      }
+    }
+    this.logger.log(`Inventory restored for cancelled order: ${orderId}`);
+  }
+
+  private async calculateDiscount(
+    couponCode: string | undefined,
+    subtotal: number,
+    customRepo?: Repository<Coupon>,
+  ) {
     if (!couponCode) {
       return {
         coupon: null,
@@ -353,7 +473,8 @@ export class OrdersService {
       };
     }
 
-    const coupon = await this.couponRepository.findOne({
+    const repo = customRepo ?? this.couponRepository;
+    const coupon = await repo.findOne({
       where: {
         code: couponCode,
         isActive: true,
@@ -370,6 +491,10 @@ export class OrdersService {
 
     if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
       throw new BadRequestException('Coupon usage limit reached');
+    }
+
+    if (coupon.minSpend !== null && subtotal < Number(coupon.minSpend)) {
+      throw new BadRequestException(`Minimum spend of ${coupon.minSpend} required for this coupon`);
     }
 
     const rawDiscount =

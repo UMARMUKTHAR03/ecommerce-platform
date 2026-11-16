@@ -14,6 +14,11 @@ const supabaseHost = (() => {
   }
 })();
 
+const backendUrl =
+  process.env.BACKEND_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3001';
+
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
@@ -30,7 +35,19 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '**.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/backend/:path*',
+        destination: `${backendUrl}/:path*`,
+      },
+    ];
   },
 };
 

@@ -24,8 +24,9 @@ export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
   const { isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
-  const [deliveryMethod, setDeliveryMethod] = useState('standard');
+  const [deliveryMethod, setDeliveryMethod] = useState<'standard' | 'express'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'bkash'>('stripe');
+  const [couponCode, setCouponCode] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
@@ -56,13 +57,31 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!address.fullName.trim() || !address.phone.trim() || !address.address.trim()) {
+      setError('Please provide your recipient name, phone, and delivery address.');
+      setStep(1);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
       const payload = await apiPost<{ id: string }>('/store/orders', {
-        items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
-        addressId: `${address.city}-${address.postcode || 'default'}`,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+        shippingAddress: {
+          fullName: address.fullName,
+          phone: address.phone,
+          streetAddress: address.address,
+          city: address.city,
+          postalCode: address.postcode,
+          country: 'Bangladesh',
+        },
+        deliveryMethod,
+        couponCode: couponCode.trim() || undefined,
         paymentMethod,
       });
 
@@ -151,7 +170,14 @@ export default function CheckoutPage() {
             />
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => {
+                if (!address.fullName.trim() || !address.phone.trim() || !address.address.trim()) {
+                  setError('Please fill recipient name, phone, and street address.');
+                  return;
+                }
+                setError(null);
+                setStep(2);
+              }}
               className="sm:col-span-2 rounded-xl bg-fg px-4 py-2.5 text-sm font-semibold text-bg"
             >
               Continue to Delivery
@@ -164,7 +190,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">Standard Delivery</p>
-                <p className="text-xs text-muted">2-4 business days</p>
+                <p className="text-xs text-muted">2-4 business days — ৳120</p>
               </span>
               <input
                 type="radio"
@@ -176,7 +202,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">Express Delivery</p>
-                <p className="text-xs text-muted">Next day in major cities</p>
+                <p className="text-xs text-muted">Next day in major cities — ৳220</p>
               </span>
               <input
                 type="radio"
@@ -200,7 +226,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">Stripe Card</p>
-                <p className="text-xs text-muted">Pay with debit or credit card</p>
+                <p className="text-xs text-muted">Pay securely with Visa, MasterCard or Amex</p>
               </span>
               <input
                 type="radio"
@@ -212,7 +238,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">bKash</p>
-                <p className="text-xs text-muted">Checkout with mobile wallet</p>
+                <p className="text-xs text-muted">Checkout with bKash mobile payment</p>
               </span>
               <input
                 type="radio"
@@ -226,7 +252,7 @@ export default function CheckoutPage() {
               onClick={() => setStep(4)}
               className="rounded-xl bg-fg px-4 py-2.5 text-sm font-semibold text-bg"
             >
-              Continue to Confirm
+              Continue to Review
             </button>
           </div>
         ) : null}
@@ -242,8 +268,13 @@ export default function CheckoutPage() {
               <p>
                 {address.city} {address.postcode}
               </p>
+              <p className="mt-2 text-xs text-fg">
+                Delivery: <span className="capitalize">{deliveryMethod}</span> (৳{shipping})
+              </p>
             </div>
+
             {error ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
+
             {placedOrderId && isPaymentComplete ? (
               <div className="space-y-3 rounded-xl border border-success bg-success-soft p-4">
                 <p className="text-sm font-semibold text-success">Order placed successfully.</p>
@@ -256,7 +287,7 @@ export default function CheckoutPage() {
               </div>
             ) : placedOrderId && paymentMethod === 'stripe' ? (
               <div className="space-y-3 rounded-xl border border-outline bg-bg-elevated p-4">
-                <p className="text-sm text-muted">Order created. Complete payment using Stripe.</p>
+                <p className="text-sm text-muted">Order created (#{placedOrderId.slice(0, 8)}). Complete payment using Stripe.</p>
                 <StripeCheckout
                   orderId={placedOrderId}
                   onPaid={(reference) => {
@@ -269,7 +300,7 @@ export default function CheckoutPage() {
               </div>
             ) : placedOrderId && paymentMethod === 'bkash' ? (
               <div className="space-y-3 rounded-xl border border-outline bg-bg-elevated p-4">
-                <p className="text-sm text-muted">Order created. Continue with bKash checkout.</p>
+                <p className="text-sm text-muted">Order created (#{placedOrderId.slice(0, 8)}). Continue with bKash checkout.</p>
                 <BkashCheckout
                   orderId={placedOrderId}
                   onPaid={(reference) => {
@@ -287,7 +318,7 @@ export default function CheckoutPage() {
                 disabled={isSubmitting}
                 className="rounded-xl bg-fg px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50"
               >
-                {isSubmitting ? 'Placing order...' : 'Confirm Order'}
+                {isSubmitting ? 'Placing order...' : 'Confirm Order & Pay'}
               </button>
             )}
           </div>
@@ -302,8 +333,19 @@ export default function CheckoutPage() {
             <span>{formatCurrency(total)}</span>
           </div>
           <div className="flex items-center justify-between text-muted">
-            <span>Shipping</span>
+            <span>Shipping ({deliveryMethod})</span>
             <span>{formatCurrency(shipping)}</span>
+          </div>
+          <div className="pt-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Promo code (e.g. LUXE10)"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                className="h-9 flex-1 rounded-lg border border-outline bg-bg-elevated px-2 text-xs text-fg uppercase"
+              />
+            </div>
           </div>
           <div className="border-t border-outline pt-2 text-base font-semibold text-fg">
             <div className="flex items-center justify-between">
