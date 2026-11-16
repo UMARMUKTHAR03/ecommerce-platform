@@ -5,18 +5,21 @@ This table lists all environment variables used across the monorepo.
 | Name | Used In | Description | Where to Get It |
 | --- | --- | --- | --- |
 | NODE_ENV | Backend | Application mode (`development`, `production`) | Set manually |
-| PORT | Backend | HTTP port for NestJS server | Railway service settings or local `.env` |
-| FRONTEND_URL | Backend | Allowed CORS origin for storefront/admin | Vercel frontend URL |
-| DATABASE_URL | Backend | PostgreSQL connection string | Supabase project database settings |
+| PORT | Backend | HTTP port for NestJS server | Render service settings or local `.env` (default: 10000 on Render) |
+| FRONTEND_URL | Backend | Allowed CORS origin for storefront/admin | Vercel frontend URL (e.g. `https://bazaarflow-luxe.vercel.app`) |
+| BACKEND_PUBLIC_URL | Backend | Public URL of backend service | Render public URL (e.g. `https://bazaarflow-backend.onrender.com`) |
+| DATABASE_URL | Backend | PostgreSQL connection string | Supabase/Render PostgreSQL settings |
+| DATABASE_MIGRATION_URL | Backend | (Optional) Direct external PostgreSQL URL for build-time migrations | Supabase connection pooling settings (direct port 5432) |
+| DATABASE_SSL | Backend | (Optional) Force SSL on non-production connections (`true`/`false`) | Set manually if needed |
 | SUPABASE_URL | Backend | Supabase project URL for storage and services | Supabase project settings |
 | SUPABASE_SERVICE_ROLE_KEY | Backend | Elevated key for storage/admin operations | Supabase API settings |
-| JWT_SECRET | Backend | JWT signing secret for customer access tokens | Generate securely (`openssl rand -hex 32`) |
+| JWT_SECRET | Backend | JWT signing secret for customer and admin access tokens | Generate securely (`openssl rand -hex 32`) |
 | JWT_EXPIRY | Backend | Access token lifetime (for example `15m`) | Set manually |
 | REFRESH_TOKEN_SECRET | Backend | JWT signing secret for refresh tokens | Generate securely (`openssl rand -hex 32`) |
 | REFRESH_TOKEN_EXPIRY | Backend | Refresh token lifetime (for example `30d`) | Set manually |
-| ADMIN_EMAIL | Backend | Default admin login email | Internal operations setting |
-| ADMIN_PASSWORD_HASH | Backend | bcrypt hash for default admin password | Generate with bcrypt utility script |
-| ADMIN_ALLOWED_IPS | Backend | Comma-separated IP allowlist for admin routes | Office/VPN static IPs |
+| ADMIN_EMAIL | Backend | Initial admin login email | Internal operations setting (default: `admin@bazaarflow.com`) |
+| ADMIN_PASSWORD_HASH | Backend | bcrypt hash for initial admin password | Generate with bcrypt: `node -e "bcrypt = require('bcrypt'); console.log(bcrypt.hashSync('Pass', 10));"` |
+| ADMIN_ALLOWED_IPS | Backend | (Optional) Comma-separated IP allowlist for admin routes | Office/VPN static IPs (leave unset to allow remote access) |
 | STRIPE_SECRET_KEY | Backend | Stripe API secret key | Stripe dashboard |
 | STRIPE_WEBHOOK_SECRET | Backend | Stripe webhook signature secret | Stripe webhook endpoint settings |
 | BKASH_APP_KEY | Backend | bKash app key | bKash merchant portal |
@@ -32,14 +35,16 @@ This table lists all environment variables used across the monorepo.
 | MEILISEARCH_API_KEY | Backend | Admin key for indexing and search settings | Meilisearch dashboard |
 | UPSTASH_REDIS_URL | Backend | Upstash Redis connection URL | Upstash Redis database settings |
 | UPSTASH_REDIS_TOKEN | Backend | Upstash Redis token/password | Upstash Redis database settings |
-| NEXT_PUBLIC_API_URL | Frontend | Public API base URL used by browser requests | Backend public URL (Railway/custom domain) |
+| BACKEND_INTERNAL_URL | Frontend | Backend URL for Next.js same-origin API proxy rewrites | Render backend URL (e.g. `https://bazaarflow-backend.onrender.com`) |
+| NEXT_PUBLIC_API_URL | Frontend | Public API base URL used by browser requests | Render backend URL (e.g. `https://bazaarflow-backend.onrender.com`) |
 | NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY | Frontend | Stripe publishable key for Checkout UI | Stripe dashboard |
+| NEXT_PUBLIC_SUPABASE_URL | Frontend | Supabase project URL for public image rendering | Supabase project settings |
 | NEXT_PUBLIC_GA_MEASUREMENT_ID | Frontend | GA4 measurement ID for web vitals and analytics | Google Analytics property settings |
 | NEXT_PUBLIC_MEILISEARCH_URL | Frontend | Public search endpoint URL | Meilisearch search endpoint |
 | NEXT_PUBLIC_MEILISEARCH_SEARCH_KEY | Frontend | Search-only key for client-side queries | Meilisearch key management |
 
 ## Notes
 
-- Backend values go in `backend/.env`.
-- Frontend values go in `frontend/.env.local`.
-- For Vercel and Railway, set environment variables in platform dashboards rather than committing local env files.
+- Backend values go in `backend/.env` or Render environment settings.
+- Frontend values go in `frontend/.env.local` or Vercel environment settings.
+- For Vercel and Render, set environment variables in platform dashboards rather than committing local env files.

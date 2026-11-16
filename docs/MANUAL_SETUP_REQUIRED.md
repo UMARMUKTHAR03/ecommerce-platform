@@ -7,11 +7,28 @@ Certain integrations require private credentials or one-time configuration in ex
 ## 1. Database (PostgreSQL / Supabase)
 
 - **Provider:** [Supabase](https://supabase.com) or [Render PostgreSQL](https://render.com).
-- **Environment Variable:** `DATABASE_URL`
+- **Environment Variable:** `DATABASE_URL` (and optional `DATABASE_MIGRATION_URL` for external direct migration connections).
 - **Actions Required:**
   1. Create a PostgreSQL project.
   2. Copy the connection URI into `DATABASE_URL` on Render.
-  3. Schema tables (`000_initial_schema.ts`) and indexes are executed via TypeORM migrations on first boot or deployment script.
+  3. Schema tables and indexes are executed via TypeORM migrations during the build phase (`npm run migration:run`).
+
+---
+
+## 2. Admin Account Provisioning & Two-Factor Authentication
+
+- **Environment Variables:**
+  - `ADMIN_EMAIL`: Email for administrative access (e.g. `admin@bazaarflow.com`).
+  - `ADMIN_PASSWORD_HASH`: Bcrypt hash of the initial administrative password.
+  - `ADMIN_ALLOWED_IPS`: (Optional) Comma-separated list of IP addresses allowed to access `/admin` and administrative APIs. Leave unset or empty to allow remote administrative login.
+- **Actions Required:**
+  1. Generate a bcrypt hash for your desired administrator password using Node.js:
+     ```bash
+     node -e "const bcrypt = require('bcrypt'); console.log(bcrypt.hashSync('YourSecurePassword', 10));"
+     ```
+  2. Set `ADMIN_PASSWORD_HASH` on Render with the output string.
+  3. On first login via `/admin/login`, the system auto-provisions the administrator account and presents a standard RFC 6238 TOTP QR code for 2FA setup in Google Authenticator or 1Password.
+  4. Subsequent logins require the password and a 6-digit TOTP code.
 
 ---
 
@@ -42,16 +59,17 @@ Certain integrations require private credentials or one-time configuration in ex
 
 ---
 
-## 4. Brevo Transactional Email
+## 5. Brevo Transactional Email
 
 - **Provider:** [Brevo (formerly Sendinblue)](https://www.brevo.com)
 - **Environment Variables:**
   - `BREVO_API_KEY`: API Key generated from Brevo SMTP & API settings.
-  - `EMAIL_FROM`: Verified sender address (e.g. `orders@bazaarflow.com`).
+  - `SENDER_EMAIL`: Verified sender address (e.g. `orders@bazaarflow.com`).
+  - `SENDER_NAME`: Sender display name (e.g. `BazaarFlow LUXE`).
 
 ---
 
-## 5. Upstash Redis (Caching & Rate Limiting)
+## 6. Upstash Redis (Caching & Rate Limiting)
 
 - **Provider:** [Upstash](https://upstash.com)
 - **Environment Variables:**
