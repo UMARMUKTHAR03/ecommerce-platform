@@ -40,7 +40,7 @@ export function pickAllowedIp() {
 
 export function adminToken() {
   const jwt = new JwtService({
-    secret: process.env.JWT_SECRET ?? 'dev-jwt-secret',
+    secret: process.env.JWT_SECRET || 'test-jwt-secret-key-12345',
   });
 
   return jwt.sign({
@@ -52,8 +52,15 @@ export function adminToken() {
 
 export function nonAdminToken() {
   const jwt = new JwtService({
-    secret: process.env.JWT_SECRET ?? 'dev-jwt-secret',
+    secret: process.env.JWT_SECRET || 'test-jwt-secret-key-12345',
   });
+
+  return jwt.sign({
+    sub: 'customer-test',
+    role: 'customer',
+    roles: ['customer'],
+  });
+}
 
   return jwt.sign({
     sub: 'customer-test',
