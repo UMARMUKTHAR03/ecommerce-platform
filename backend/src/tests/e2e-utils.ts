@@ -62,13 +62,6 @@ export function nonAdminToken() {
   });
 }
 
-  return jwt.sign({
-    sub: 'customer-test',
-    role: 'customer',
-    roles: ['customer'],
-  });
-}
-
 export function readCookies(headers: Record<string, unknown>) {
   const setCookie = headers['set-cookie'];
 
