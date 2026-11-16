@@ -54,8 +54,10 @@ jobs:
           NODE_ENV: test
 
       - name: Run Backend E2E Integration Tests
-        run: npx jest --config ./test/jest-e2e.json --runInBand --colors
+        run: npx jest --config ./test/jest-e2e.json --runInBand --verbose
         working-directory: backend
+        continue-on-error: true
+        id: e2e_step
         env:
           DATABASE_URL: postgresql://postgres:testpassword123@localhost:5432/bazaarflow_test
           NODE_ENV: test
@@ -63,6 +65,10 @@ jobs:
           JWT_SECRET: test-jwt-secret-key-12345
           REFRESH_TOKEN_SECRET: test-refresh-token-secret-67890
           ADMIN_ALLOWED_IPS: '127.0.0.1,::1,::ffff:127.0.0.1'
+
+      - name: Inspect E2E Failure
+        if: steps.e2e_step.outcome == 'failure'
+        run: echo "E2E Failed - check step log above" && exit 1
 
       - name: Build Backend Application
         run: npm run build:backend
