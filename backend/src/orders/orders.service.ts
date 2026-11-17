@@ -298,7 +298,7 @@ export class OrdersService {
       .leftJoinAndSelect('order.items', 'item')
       .leftJoinAndSelect('item.product', 'product')
       .leftJoinAndSelect('item.variant', 'variant')
-      .orderBy('order.created_at', 'DESC')
+      .orderBy('order.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

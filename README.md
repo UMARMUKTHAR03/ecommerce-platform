@@ -89,6 +89,14 @@ cp .env.example backend/.env
 cp .env.example frontend/.env.local
 ```
 
+#### Key Frontend Environment Variables
+| Variable | Description | Default / Example |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Base URL of the NestJS backend API | `https://bazaarflow-backend.onrender.com` (prod) or `http://localhost:3001` (dev) |
+| `BACKEND_INTERNAL_URL` | Direct backend internal network URL for server-side Next.js data fetching | `http://localhost:3001` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL for remote image domain verification | `https://*.supabase.co` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key for client-side payment elements | `pk_test_...` |
+
 ### 3. Run Automated Tests
 ```bash
 # Run backend test suite (OrdersService, StripeService, AppController)

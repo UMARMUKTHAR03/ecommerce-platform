@@ -38,7 +38,7 @@ export class ProductVariant {
   @Column({ type: 'varchar', length: 50, nullable: true })
   color!: string | null;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'price_adjustment', type: 'decimal', precision: 12, scale: 2, default: 0 })
   priceAdjustment!: string;
 
   @Column({ type: 'int', default: 0 })

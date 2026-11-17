@@ -925,6 +925,48 @@ let ratingFilterVal = 'all';
 let inStockOnly = false;
 let currentSort = 'popular';
 let currentQuickViewProduct = null;
+const API_BASE_URL = 'https://bazaarflow-backend.onrender.com';
+
+async function fetchLiveProducts() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/store/products?limit=50`, {
+      headers: { 'Accept': 'application/json' },
+      credentials: 'omit'
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const items = json?.data?.items || json?.items || [];
+    if (items.length > 0) {
+      // Map live backend luxury products into catalog
+      const backendProducts = items.map((item, idx) => ({
+        id: item.id,
+        backendId: item.id,
+        title: item.title,
+        category: item.category?.slug || 'luxury-tech',
+        categoryName: item.category?.name || 'Exclusive',
+        badge: idx === 0 ? 'badge-flash' : 'badge-bestseller',
+        badgeText: idx === 0 ? '-10% SPECIAL' : 'CURATED',
+        price: parseFloat(item.price) || 500,
+        strike: item.discountPrice ? parseFloat(item.price) * 1.15 : parseFloat(item.price) * 1.2,
+        rating: 5.0,
+        reviews: item.reviews?.length || 24,
+        stock: item.stock || 10,
+        description: item.description || '',
+        colors: ["#0f172a", "#d97706", "#64748b"],
+        variants: item.variants && item.variants.length > 0 ? item.variants.map(v => v.title) : ["Signature Edition"],
+        iconType: (item.category?.slug === 'timepieces') ? 'watch' : 'audio',
+        imageUrl: (item.images && item.images.length > 0) ? item.images[0] : null
+      }));
+      // Merge backend products with fallback demo catalog
+      PRODUCTS.unshift(...backendProducts);
+      renderCategoryTabs();
+      renderCatalog();
+    }
+  } catch (err) {
+    console.warn('Backend API connection offline or pending wake-up; using cached luxury catalog.', err);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 try {
 const savedCart = localStorage.getItem('bazaarflow_cart');
@@ -938,7 +980,17 @@ renderCategoryTabs();
 renderCatalog();
 updateCartBadge();
 updateWishlistBadge();
+
+// Connect to real backend API
+fetchLiveProducts();
 });
+function renderProductArt(p) {
+  if (p.imageUrl) {
+    return `<img src="${p.imageUrl}" alt="${p.title}" style="width:100%; height:100%; object-fit:cover; border-radius:var(--radius-md);" loading="lazy" />`;
+  }
+  return getProductSvg(p.iconType, p.colors ? p.colors[0] : '#6366f1');
+}
+
 function getProductSvg(type, color = "#6366f1") {
 switch(type) {
 case "watch":
@@ -1105,7 +1157,7 @@ return `
 </button>
 </div>
 <div class="product-art-wrap">
-${getProductSvg(p.iconType, p.colors[0])}
+${renderProductArt(p)}
 </div>
 <div class="card-category">${p.categoryName}</div>
 <h3 class="card-title">${p.title}</h3>
@@ -1381,7 +1433,7 @@ grid.innerHTML = filtered.map(p => `
 <span class="badge-chip ${p.badge}">${p.badgeText}</span>
 <button class="wishlist-toggle active" onclick="toggleWishlist(event, ${p.id})">♥</button>
 </div>
-<div class="product-art-wrap">${getProductSvg(p.iconType, p.colors[0])}</div>
+<div class="product-art-wrap">${renderProductArt(p)}</div>
 <div class="card-category">${p.categoryName}</div>
 <h3 class="card-title">${p.title}</h3>
 <div class="card-rating">★ ${p.rating} (${p.reviews})</div>
@@ -1416,7 +1468,7 @@ document.getElementById('qvRating').innerText = `★★★★★ (${prod.rating}
 document.getElementById('qvDesc').innerText = prod.description;
 document.getElementById('qvPrice').innerText = formatPrice(prod.price);
 document.getElementById('qvStrike').innerText = formatPrice(prod.strike);
-document.getElementById('qvArtSlot').innerHTML = getProductSvg(prod.iconType, prod.colors[0]);
+document.getElementById('qvArtSlot').innerHTML = renderProductArt(prod);
 const swatchesEl = document.getElementById('qvSwatches');
 swatchesEl.innerHTML = prod.colors.map((color, idx) => `
 <div class="color-swatch ${idx === 0 ? 'active' : ''}" style="background:${color};" onclick="switchQvColor('${color}', this)"></div>

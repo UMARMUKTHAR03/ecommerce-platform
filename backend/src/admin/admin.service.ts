@@ -112,7 +112,7 @@ export class AdminService {
     const qb = this.customerRepository
       .createQueryBuilder('customer')
       .leftJoinAndSelect('customer.orders', 'order')
-      .orderBy('customer.created_at', 'DESC')
+      .orderBy('customer.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

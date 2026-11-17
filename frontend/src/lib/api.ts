@@ -6,7 +6,11 @@ const SERVER_API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
   'http://localhost:3001';
 
-const BROWSER_API_BASE = '/api/backend';
+// If NEXT_PUBLIC_API_URL is configured (e.g. deployed to GitHub Pages or static host),
+// direct browser requests to the backend with CORS. Otherwise, route through the same-origin
+// Next.js proxy rewrite (/api/backend) for local dev or custom Next.js server proxy.
+const BROWSER_API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || '/api/backend';
 
 function getApiBase(): string {
   if (typeof window !== 'undefined') {

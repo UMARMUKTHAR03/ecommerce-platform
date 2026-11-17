@@ -55,14 +55,14 @@ export class ProductsService {
         qb.orderBy('product.price', 'DESC');
         break;
       case ProductSort.POPULAR:
-        qb.orderBy(
+        qb.addSelect(
           '(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.product_id = product.id)',
-          'DESC',
-        );
+          'popular_count',
+        ).orderBy('popular_count', 'DESC');
         break;
       case ProductSort.NEWEST:
       default:
-        qb.orderBy('product.created_at', 'DESC');
+        qb.orderBy('product.createdAt', 'DESC');
         break;
     }
 
@@ -83,7 +83,7 @@ export class ProductsService {
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .orderBy('product.created_at', 'DESC')
+      .orderBy('product.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
