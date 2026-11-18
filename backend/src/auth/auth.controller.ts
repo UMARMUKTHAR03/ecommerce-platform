@@ -72,6 +72,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @HttpCode(200)
   async logout(
     @Body() body: { refreshToken?: string },
     @Req() request: Request,
@@ -90,6 +91,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @HttpCode(200)
   async refreshSession(
     @Body() body: { refreshToken?: string },
     @Req() request: Request,

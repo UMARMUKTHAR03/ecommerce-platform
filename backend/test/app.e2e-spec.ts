@@ -110,4 +110,107 @@ describeSuite('App, Auth & Health E2E', () => {
       .send({})
       .expect(200);
   });
+
+  it('Complete Customer Purchase Workflow: Register -> Browse -> Cart/Checkout -> Order Creation -> History', async () => {
+    if (!isPostgresConfigured) {
+      console.log('Skipping live DB purchase workflow: DATABASE_URL not set');
+      return;
+    }
+
+    const customerEmail = `purchase.${Date.now()}.${Math.floor(Math.random() * 10000)}@bazaarflow.com`;
+    const password = 'Password123!@#';
+
+    // 1. Register customer
+    const regRes = await request(app.getHttpServer())
+      .post('/store/auth/register')
+      .send({
+        email: customerEmail,
+        password,
+        name: 'Purchase Tester',
+      })
+      .expect(201);
+
+    const loginRes = await request(app.getHttpServer())
+      .post('/store/auth/login')
+      .send({ email: customerEmail, password })
+      .expect(200);
+
+    const cookies = loginRes.headers['set-cookie'] as string[];
+
+    // 2. Browse categories & products
+    const catRes = await request(app.getHttpServer())
+      .get('/store/categories')
+      .expect(200);
+    expect(Array.isArray(catRes.body)).toBe(true);
+
+    const prodRes = await request(app.getHttpServer())
+      .get('/store/products?limit=5')
+      .expect(200);
+    expect(prodRes.body).toHaveProperty('items');
+    expect(Array.isArray(prodRes.body.items)).toBe(true);
+    expect(prodRes.body.items.length).toBeGreaterThan(0);
+
+    const product = prodRes.body.items[0];
+    const variantId = product.variants && product.variants.length > 0 ? product.variants[0].id : undefined;
+
+    // 3. Test coupon validation
+    const couponValRes = await request(app.getHttpServer())
+      .post('/store/coupons/validate')
+      .send({
+        code: 'LUXE10',
+        orderAmount: 10000,
+      });
+    // Coupon LUXE10 might exist if seeded or return 400 if not seeded; check endpoint handled cleanly
+    expect([200, 400]).toContain(couponValRes.status);
+
+    // 4. Create Order (Checkout)
+    const orderPayload = {
+      items: [
+        {
+          productId: product.id,
+          variantId,
+          quantity: 1,
+        },
+      ],
+      shippingAddress: {
+        fullName: 'Purchase Tester',
+        phone: '+8801700000000',
+        streetAddress: '128 Gulshan Ave',
+        city: 'Dhaka',
+        postalCode: '1212',
+        country: 'Bangladesh',
+      },
+      deliveryMethod: 'standard',
+      paymentMethod: 'stripe',
+    };
+
+    const orderRes = await request(app.getHttpServer())
+      .post('/store/orders')
+      .set('Cookie', cookies)
+      .send(orderPayload)
+      .expect(201);
+
+    expect(orderRes.body).toHaveProperty('id');
+    const orderId = orderRes.body.id;
+    expect(orderRes.body.status).toBe('pending');
+
+    // 5. Query order by ID
+    const singleOrderRes = await request(app.getHttpServer())
+      .get(`/store/orders/${orderId}`)
+      .set('Cookie', cookies)
+      .expect(200);
+    expect(singleOrderRes.body.id).toBe(orderId);
+    expect(singleOrderRes.body.status).toBe('pending');
+
+    // 6. Query customer order history (/store/orders/my)
+    const myOrdersRes = await request(app.getHttpServer())
+      .get('/store/orders/my')
+      .set('Cookie', cookies)
+      .expect(200);
+
+    expect(myOrdersRes.body).toHaveProperty('items');
+    expect(Array.isArray(myOrdersRes.body.items)).toBe(true);
+    const foundOrder = myOrdersRes.body.items.find((o: any) => o.id === orderId);
+    expect(foundOrder).toBeDefined();
+  }, 30000);
 });

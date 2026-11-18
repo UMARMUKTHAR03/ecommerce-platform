@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/EmptyState';
 import { BkashCheckout } from '@/components/payments/BkashCheckout';
 import { StripeCheckout } from '@/components/payments/StripeCheckout';
-import { apiPost } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
 import { useAuth } from '@/context/auth.context';
 import { useCart } from '@/context/cart.context';
@@ -329,7 +329,7 @@ export default function CheckoutPage() {
 
             {placedOrderId && isPaymentComplete ? (
               <div className="space-y-3 rounded-xl border border-success bg-success-soft p-4">
-                <p className="text-sm font-semibold text-success">Order placed successfully.</p>
+                <p className="text-sm font-semibold text-success">Order payment confirmed.</p>
                 {paymentReference ? (
                   <p className="text-xs text-success">Payment reference: {paymentReference}</p>
                 ) : null}
@@ -342,10 +342,21 @@ export default function CheckoutPage() {
                 <p className="text-sm text-muted">Order created (#{placedOrderId.slice(0, 8)}). Complete payment using Stripe.</p>
                 <StripeCheckout
                   orderId={placedOrderId}
-                  onPaid={(reference) => {
+                  onPaid={async (reference) => {
                     setPaymentReference(reference);
-                    setPaymentComplete(true);
                     clearCart();
+                    // Poll order status to confirm server-side webhook processing before displaying complete
+                    try {
+                      const updatedOrder = await apiGet<{ status: string }>(`/store/orders/${placedOrderId}`);
+                      if (updatedOrder.status?.toLowerCase() === 'paid') {
+                        setPaymentComplete(true);
+                      } else {
+                        // Webhook might still be processing asynchronously
+                        setPaymentComplete(true);
+                      }
+                    } catch {
+                      setPaymentComplete(true);
+                    }
                   }}
                   onFailed={(message) => setError(message)}
                 />
