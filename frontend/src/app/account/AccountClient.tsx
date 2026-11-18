@@ -105,7 +105,7 @@ export function AccountClient({ initialTab }: AccountClientProps) {
           title="Please sign in"
           description="Your orders, wishlist, and profile settings are available after login."
           ctaLabel="Go to login"
-          ctaHref="/auth/login"
+          ctaHref="/auth/login?redirect=/account"
         />
       </div>
     );

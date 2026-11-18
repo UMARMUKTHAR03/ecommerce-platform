@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth.context';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/account';
+
   const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,36 +18,41 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/account');
+      router.replace(redirectUrl);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, redirectUrl, router]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!email.trim() || !password) {
+      setError('Please provide both email and password.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await login(email.trim(), password);
+      router.push(redirectUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-md rounded-3xl border border-outline bg-panel p-7 shadow-soft">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-brand">Welcome Back</p>
         <h1 className="mt-2 font-display text-3xl font-semibold text-fg">Login to your account</h1>
+        {redirectUrl.startsWith('/checkout') ? (
+          <p className="mt-1 text-xs text-brand">Please sign in to proceed to checkout.</p>
+        ) : null}
       </div>
 
-      <form
-        className="mt-6 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitting(true);
-          setError(null);
-
-          login(email, password)
-            .then(() => {
-              router.push('/account');
-            })
-            .catch((err) => {
-              setError(err instanceof Error ? err.message : 'Login failed.');
-            })
-            .finally(() => {
-              setSubmitting(false);
-            });
-        }}
-      >
+      <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
           <label htmlFor="email" className="text-xs uppercase tracking-wide text-muted">
             Email
@@ -55,7 +63,9 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="email"
+            placeholder="name@example.com"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
@@ -69,7 +79,9 @@ export default function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
@@ -84,24 +96,23 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-5 space-y-2">
-        <p className="text-center text-xs uppercase tracking-wide text-muted">Or continue with</p>
-        <div className="grid grid-cols-2 gap-3">
-          <button type="button" className="rounded-xl border border-outline px-3 py-2 text-sm text-fg">
-            Google (Soon)
-          </button>
-          <button type="button" className="rounded-xl border border-outline px-3 py-2 text-sm text-fg">
-            Facebook (Soon)
-          </button>
-        </div>
-      </div>
-
       <p className="mt-6 text-center text-sm text-muted">
-        New here?{' '}
-        <Link href="/auth/register" className="font-medium text-fg underline">
+        New to BazaarFlow?{' '}
+        <Link
+          href={`/auth/register${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
+          className="font-medium text-fg underline hover:text-brand"
+        >
           Create an account
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="py-14 text-center text-sm text-muted">Loading login form...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

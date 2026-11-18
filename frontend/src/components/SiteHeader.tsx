@@ -64,6 +64,25 @@ export function SiteHeader() {
             </svg>
           </IconButton>
 
+          {!isAuthenticated ? (
+            <div className="hidden items-center gap-1.5 sm:flex">
+              <Link
+                href="/auth/login"
+                prefetch={true}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-fg transition hover:bg-bg-elevated"
+              >
+                Login
+              </Link>
+              <Link
+                href="/auth/register"
+                prefetch={true}
+                className="rounded-full bg-fg px-3.5 py-1.5 text-xs font-semibold text-bg transition hover:opacity-90"
+              >
+                Register
+              </Link>
+            </div>
+          ) : null}
+
           <div className="relative">
             <button
               type="button"
@@ -106,6 +125,7 @@ export function SiteHeader() {
                     <Link
                       href="/auth/login"
                       prefetch={true}
+                      onClick={() => setMenuOpen(false)}
                       className="block rounded-xl px-3 py-2 text-sm text-fg transition hover:bg-bg-elevated"
                     >
                       Login
@@ -113,6 +133,7 @@ export function SiteHeader() {
                     <Link
                       href="/auth/register"
                       prefetch={true}
+                      onClick={() => setMenuOpen(false)}
                       className="mt-1 block rounded-xl px-3 py-2 text-sm text-fg transition hover:bg-bg-elevated"
                     >
                       Register

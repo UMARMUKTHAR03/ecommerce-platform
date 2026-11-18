@@ -1,70 +1,93 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { apiPost } from '@/lib/api';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth.context';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
-  const { refresh } = useAuth();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/account';
+
+  const { register, isAuthenticated } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace(redirectUrl);
+    }
+  }, [isAuthenticated, redirectUrl, router]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      setError('Please provide your full name.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please provide a valid email address.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await register(name.trim(), email.trim(), password, phone.trim() || undefined);
+      router.push(redirectUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please check your information.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-md rounded-3xl border border-outline bg-panel p-7 shadow-soft">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-brand">Get Started</p>
         <h1 className="mt-2 font-display text-3xl font-semibold text-fg">Create your account</h1>
+        {redirectUrl.startsWith('/checkout') ? (
+          <p className="mt-1 text-xs text-brand">Create an account to complete your checkout.</p>
+        ) : null}
       </div>
 
-      <form
-        className="mt-6 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitting(true);
-          setError(null);
-
-          apiPost('/store/auth/register', {
-            name,
-            email,
-            phone,
-            password,
-          })
-            .then(async () => {
-              await refresh();
-              router.push('/account');
-            })
-            .catch((err) => {
-              setError(err instanceof Error ? err.message : 'Registration failed.');
-            })
-            .finally(() => {
-              setSubmitting(false);
-            });
-        }}
-      >
+      <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
           <label htmlFor="name" className="text-xs uppercase tracking-wide text-muted">
-            Full name
+            Full name *
           </label>
           <input
             id="name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="name"
+            placeholder="Alexander Wright"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
         <div className="space-y-2">
           <label htmlFor="email" className="text-xs uppercase tracking-wide text-muted">
-            Email
+            Email *
           </label>
           <input
             id="email"
@@ -72,25 +95,30 @@ export default function RegisterPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="email"
+            placeholder="name@example.com"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
         <div className="space-y-2">
           <label htmlFor="phone" className="text-xs uppercase tracking-wide text-muted">
-            Phone
+            Phone (optional)
           </label>
           <input
             id="phone"
+            type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="tel"
+            placeholder="+880 1700 000000"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
         <div className="space-y-2">
           <label htmlFor="password" className="text-xs uppercase tracking-wide text-muted">
-            Password
+            Password (min 8 chars) *
           </label>
           <input
             id="password"
@@ -99,7 +127,26 @@ export default function RegisterPage() {
             onChange={(event) => setPassword(event.target.value)}
             minLength={8}
             required
-            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="confirmPassword" className="text-xs uppercase tracking-wide text-muted">
+            Confirm Password *
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            minLength={8}
+            required
+            autoComplete="new-password"
+            placeholder="••••••••"
+            className="h-11 w-full rounded-xl border border-outline bg-bg-elevated px-3 text-sm text-fg focus:border-brand focus:outline-none"
           />
         </div>
 
@@ -114,24 +161,23 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <div className="mt-5 space-y-2">
-        <p className="text-center text-xs uppercase tracking-wide text-muted">Or continue with</p>
-        <div className="grid grid-cols-2 gap-3">
-          <button type="button" className="rounded-xl border border-outline px-3 py-2 text-sm text-fg">
-            Google (Soon)
-          </button>
-          <button type="button" className="rounded-xl border border-outline px-3 py-2 text-sm text-fg">
-            Facebook (Soon)
-          </button>
-        </div>
-      </div>
-
       <p className="mt-6 text-center text-sm text-muted">
         Already have an account?{' '}
-        <Link href="/auth/login" className="font-medium text-fg underline">
-          Login
+        <Link
+          href={`/auth/login${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
+          className="font-medium text-fg underline hover:text-brand"
+        >
+          Log in here
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="py-14 text-center text-sm text-muted">Loading registration form...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

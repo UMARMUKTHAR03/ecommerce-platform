@@ -22,7 +22,7 @@ interface AddressForm {
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState<'standard' | 'express'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'bkash'>('stripe');
@@ -154,6 +154,23 @@ export default function CheckoutPage() {
           description="Add items to your cart before checkout."
           ctaLabel="Go to products"
           ctaHref="/products"
+        />
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return <div className="py-14 text-center text-sm text-muted">Checking authentication...</div>;
+  }
+
+  if (!isAuthenticated && !placedOrderId) {
+    return (
+      <div className="py-14">
+        <EmptyState
+          title="Sign in required for checkout"
+          description="Please login or create an account to securely complete your purchase."
+          ctaLabel="Login to continue"
+          ctaHref="/auth/login?redirect=/checkout"
         />
       </div>
     );

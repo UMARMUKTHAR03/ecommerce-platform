@@ -12,6 +12,7 @@ import {
   getUser as getUserFromAuth,
   login as loginRequest,
   logout as logoutRequest,
+  register as registerRequest,
 } from '@/lib/auth';
 import type { AuthUser } from '@/lib/types';
 
@@ -20,6 +21,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -66,6 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(toAuthUser(response.customer));
     };
 
+    const register = async (name: string, email: string, password: string, phone?: string) => {
+      const response = await registerRequest(name, email, password, phone);
+      setCurrentUser(toAuthUser(response.customer));
+    };
+
     const logout = async () => {
       await logoutRequest();
       setCurrentUser(null);
@@ -80,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(currentUser),
       isLoading,
       login,
+      register,
       logout,
       refresh: refreshUser,
     };
