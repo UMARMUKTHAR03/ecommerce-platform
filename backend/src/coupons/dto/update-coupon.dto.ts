@@ -30,6 +30,12 @@ export class UpdateCouponDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  minSpend?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   @Min(1)
   usageLimit?: number | null;
 

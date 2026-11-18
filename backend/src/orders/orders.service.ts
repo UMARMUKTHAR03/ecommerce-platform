@@ -474,9 +474,10 @@ export class OrdersService {
     }
 
     const repo = customRepo ?? this.couponRepository;
+    const cleanCode = couponCode.trim().toUpperCase();
     const coupon = await repo.findOne({
       where: {
-        code: couponCode,
+        code: cleanCode,
         isActive: true,
       },
     });

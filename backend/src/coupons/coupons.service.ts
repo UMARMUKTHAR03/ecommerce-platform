@@ -18,9 +18,10 @@ export class CouponsService {
   ) {}
 
   async validateCoupon(dto: ValidateCouponDto) {
+    const cleanCode = dto.code.trim().toUpperCase();
     const coupon = await this.couponRepository.findOne({
       where: {
-        code: dto.code,
+        code: cleanCode,
         isActive: true,
       },
     });
@@ -38,6 +39,11 @@ export class CouponsService {
     }
 
     const orderAmount = dto.orderAmount ?? 0;
+
+    if (coupon.minSpend !== null && orderAmount < Number(coupon.minSpend)) {
+      throw new BadRequestException(`Minimum spend of ${coupon.minSpend} required for this coupon`);
+    }
+
     const discountAmount =
       coupon.type === CouponType.PERCENTAGE
         ? (orderAmount * Number(coupon.value)) / 100
@@ -59,9 +65,10 @@ export class CouponsService {
 
   async createCoupon(dto: CreateCouponDto) {
     const coupon = this.couponRepository.create({
-      code: dto.code,
+      code: dto.code.trim().toUpperCase(),
       type: dto.type,
       value: dto.value.toFixed(2),
+      minSpend: dto.minSpend !== undefined ? dto.minSpend.toFixed(2) : null,
       usageLimit: dto.usageLimit ?? null,
       usedCount: 0,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
@@ -86,9 +93,10 @@ export class CouponsService {
       throw new NotFoundException('Coupon not found');
     }
 
-    if (dto.code !== undefined) coupon.code = dto.code;
+    if (dto.code !== undefined) coupon.code = dto.code.trim().toUpperCase();
     if (dto.type !== undefined) coupon.type = dto.type;
     if (dto.value !== undefined) coupon.value = dto.value.toFixed(2);
+    if (dto.minSpend !== undefined) coupon.minSpend = dto.minSpend !== null ? dto.minSpend.toFixed(2) : null;
     if (dto.usageLimit !== undefined) coupon.usageLimit = dto.usageLimit;
     if (dto.expiresAt !== undefined) {
       coupon.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;

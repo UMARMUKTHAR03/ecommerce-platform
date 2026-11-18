@@ -27,6 +27,14 @@ export default function CheckoutPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<'standard' | 'express'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'bkash'>('stripe');
   const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    type?: string;
+    value?: number;
+  } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
@@ -49,7 +57,50 @@ export default function CheckoutPage() {
     return deliveryMethod === 'express' ? 220 : 120;
   }, [deliveryMethod, items.length]);
 
-  const grandTotal = total + shipping;
+  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const grandTotal = Math.max(total - discountAmount + shipping, 0);
+
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) {
+      setCouponMessage('Enter a promo code first.');
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponMessage(null);
+
+    try {
+      const res = await apiPost<{
+        valid: boolean;
+        code: string;
+        discountAmount: number;
+        type: string;
+        value: number;
+      }>('/store/coupons/validate', {
+        code: couponCode.trim(),
+        orderAmount: total,
+      });
+
+      setAppliedCoupon({
+        code: res.code,
+        discountAmount: res.discountAmount,
+        type: res.type,
+        value: res.value,
+      });
+      setCouponMessage(`Promo code applied: ${formatCurrency(res.discountAmount)} discount`);
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponMessage(err instanceof Error ? err.message : 'Invalid promo code');
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponMessage(null);
+  }
 
   async function placeOrder() {
     if (!isAuthenticated) {
@@ -82,7 +133,7 @@ export default function CheckoutPage() {
           country: 'Bangladesh',
         },
         deliveryMethod,
-        couponCode: couponCode.trim() || undefined,
+        couponCode: (appliedCoupon?.code || couponCode.trim()).toUpperCase() || undefined,
         paymentMethod,
       });
 
@@ -343,11 +394,41 @@ export default function CheckoutPage() {
                 type="text"
                 placeholder="Promo code (e.g. LUXE10)"
                 value={couponCode}
+                disabled={Boolean(appliedCoupon) || couponLoading}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                className="h-9 flex-1 rounded-lg border border-outline bg-bg-elevated px-2 text-xs text-fg uppercase"
+                className="h-9 flex-1 rounded-lg border border-outline bg-bg-elevated px-2 text-xs text-fg uppercase disabled:opacity-60"
               />
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="rounded-lg border border-outline px-3 py-1 text-xs font-semibold text-danger hover:bg-danger-soft transition"
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading || !couponCode.trim()}
+                  className="rounded-lg bg-fg px-3 py-1 text-xs font-semibold text-bg hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {couponLoading ? 'Checking...' : 'Apply'}
+                </button>
+              )}
             </div>
+            {couponMessage ? (
+              <p className={`mt-1.5 text-xs ${appliedCoupon ? 'text-success' : 'text-danger'}`}>
+                {couponMessage}
+              </p>
+            ) : null}
           </div>
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between text-success">
+              <span>Coupon ({appliedCoupon.code})</span>
+              <span>-{formatCurrency(discountAmount)}</span>
+            </div>
+          ) : null}
           <div className="border-t border-outline pt-2 text-base font-semibold text-fg">
             <div className="flex items-center justify-between">
               <span>Grand total</span>

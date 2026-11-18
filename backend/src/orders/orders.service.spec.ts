@@ -167,6 +167,104 @@ describe('OrdersService', () => {
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(order.total).toBe('9120.00');
     });
+
+    it('creates order with valid coupon discount and increments coupon usedCount', async () => {
+      const mockProduct = {
+        id: 'prod-1',
+        title: 'Luxury Chronograph',
+        price: '10000.00',
+        stock: 5,
+        isActive: true,
+      };
+
+      const mockCoupon = {
+        id: 'coupon-luxe10',
+        code: 'LUXE10',
+        type: CouponType.PERCENTAGE,
+        value: '10.00',
+        minSpend: '5000.00',
+        usageLimit: 100,
+        usedCount: 2,
+        isActive: true,
+        expiresAt: new Date(Date.now() + 86400000),
+      };
+
+      const mockQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockProduct),
+      };
+      mockQueryRunner.manager.createQueryBuilder.mockReturnValue(mockQb);
+      mockQueryRunner.manager.save.mockImplementation((entity: any) => Promise.resolve(entity));
+      mockQueryRunner.manager.getRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(mockCoupon),
+        save: jest.fn().mockImplementation((c: any) => Promise.resolve(c)),
+      });
+
+      mockOrderRepo.findOne.mockResolvedValue({
+        id: 'order-with-coupon',
+        customerId: 'cust-1',
+        status: OrderStatus.PENDING,
+        subtotal: '10000.00',
+        shippingFee: '120.00',
+        discountAmount: '1000.00',
+        total: '9120.00',
+        items: [{ productId: 'prod-1', quantity: 1, price: '10000.00' }],
+      });
+
+      const order = await service.createOrder('cust-1', {
+        items: [{ productId: 'prod-1', quantity: 1 }],
+        deliveryMethod: 'standard',
+        couponCode: 'luxe10',
+        paymentMethod: 'stripe',
+      });
+
+      expect(mockCoupon.usedCount).toBe(3);
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      expect(order.discountAmount).toBe('1000.00');
+    });
+
+    it('throws BadRequestException if coupon is expired', async () => {
+      const mockProduct = {
+        id: 'prod-1',
+        title: 'Luxury Chronograph',
+        price: '10000.00',
+        stock: 5,
+        isActive: true,
+      };
+
+      const mockExpiredCoupon = {
+        id: 'coupon-exp',
+        code: 'EXPIRED10',
+        type: CouponType.PERCENTAGE,
+        value: '10.00',
+        minSpend: null,
+        usageLimit: null,
+        usedCount: 0,
+        isActive: true,
+        expiresAt: new Date(Date.now() - 100000),
+      };
+
+      const mockQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockProduct),
+      };
+      mockQueryRunner.manager.createQueryBuilder.mockReturnValue(mockQb);
+      mockQueryRunner.manager.getRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(mockExpiredCoupon),
+      });
+
+      await expect(
+        service.createOrder('cust-1', {
+          items: [{ productId: 'prod-1', quantity: 1 }],
+          couponCode: 'EXPIRED10',
+          paymentMethod: 'stripe',
+        }),
+      ).rejects.toThrow('Coupon has expired');
+
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+    });
   });
 
   describe('updateOrderStatus', () => {
