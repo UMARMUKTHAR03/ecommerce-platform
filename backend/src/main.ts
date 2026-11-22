@@ -34,15 +34,15 @@ async function bootstrap() {
     }),
   );
 
-  // Exact origin checking: allow configured frontend URL and explicit development origins
+  // Exact origin checking: allow configured frontend URL and explicit production/development origins
   const normalizedFrontend = frontendUrl.replace(/\/+$/, '');
   const allowedOrigins = new Set([
     normalizedFrontend,
+    'https://bazaarflow-luxe.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
-    'https://umarmukthar03.github.io',
   ]);
 
   app.enableCors({

@@ -2,7 +2,6 @@
 
 [![CI/CD Status](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions)
 [![Live Vercel Storefront](https://img.shields.io/badge/Live%20Storefront-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://bazaarflow-luxe.vercel.app/)
-[![Live Prototype Preview](https://img.shields.io/badge/Live%20Prototype-GitHub%20Pages-6366f1?style=for-the-badge&logo=githubpages&logoColor=white)](https://umarmukthar03.github.io/ecommerce-platform/)
 [![Backend API](https://img.shields.io/badge/Backend%20API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://bazaarflow-backend.onrender.com/health)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.1-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
@@ -14,8 +13,7 @@
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](./LICENSE)
 [![Author](https://img.shields.io/badge/Architect-UMAR%20MUKTHAR-8b5cf6?style=for-the-badge&logo=github)](https://github.com/UMARMUKTHAR03)
 
-> 🛍️ **Production Vercel Storefront:** **[https://bazaarflow-luxe.vercel.app/](https://bazaarflow-luxe.vercel.app/)**  
-> 🌐 **Interactive Showcase Prototype:** **[https://umarmukthar03.github.io/ecommerce-platform/](https://umarmukthar03.github.io/ecommerce-platform/)**  
+> 🛍️ **Production Storefront Application:** **[https://bazaarflow-luxe.vercel.app/](https://bazaarflow-luxe.vercel.app/)**  
 > ⚙️ **Production NestJS API on Render:** **[https://bazaarflow-backend.onrender.com/health](https://bazaarflow-backend.onrender.com/health)**  
 
 ---
