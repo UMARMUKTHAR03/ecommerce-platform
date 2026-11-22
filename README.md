@@ -1,7 +1,9 @@
-# 🛍️ BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce & Luxury Retail Platform
+# 🛍️ BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Monorepo & Luxury Commerce
 
 [![CI/CD Status](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions)
+[![Live Vercel Storefront](https://img.shields.io/badge/Live%20Storefront-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://bazaarflow-luxe.vercel.app/)
 [![Live Prototype Preview](https://img.shields.io/badge/Live%20Prototype-GitHub%20Pages-6366f1?style=for-the-badge&logo=githubpages&logoColor=white)](https://umarmukthar03.github.io/ecommerce-platform/)
+[![Backend API](https://img.shields.io/badge/Backend%20API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://bazaarflow-backend.onrender.com/health)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.1-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -12,8 +14,9 @@
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](./LICENSE)
 [![Author](https://img.shields.io/badge/Architect-UMAR%20MUKTHAR-8b5cf6?style=for-the-badge&logo=github)](https://github.com/UMARMUKTHAR03)
 
-> 🌐 **Interactive Frontend Prototype:** **[https://umarmukthar03.github.io/ecommerce-platform/](https://umarmukthar03.github.io/ecommerce-platform/)**  
-> 📦 **Production Deployments:** Full-stack production deployment configured for **Vercel** (Next.js storefront & admin) and **Render** (NestJS backend API with PostgreSQL & Redis).
+> 🛍️ **Production Vercel Storefront:** **[https://bazaarflow-luxe.vercel.app/](https://bazaarflow-luxe.vercel.app/)**  
+> 🌐 **Interactive Showcase Prototype:** **[https://umarmukthar03.github.io/ecommerce-platform/](https://umarmukthar03.github.io/ecommerce-platform/)**  
+> ⚙️ **Production NestJS API on Render:** **[https://bazaarflow-backend.onrender.com/health](https://bazaarflow-backend.onrender.com/health)**  
 
 ---
 
@@ -27,14 +30,95 @@
 
 ## ⚡ Overview
 
-**BazaarFlow LUXE** is an enterprise-grade full-stack e-commerce monorepo engineered for high-concurrency luxury commerce, authoritative financial calculations, transactional row locking, and omnichannel payments.
+**BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Monorepo & Luxury Commerce** is an enterprise-grade full-stack commerce platform engineered for high-concurrency luxury commerce, authoritative financial calculations, transactional row locking, and omnichannel payments.
 
-- 🛍️ **Customer Storefront & Admin Portal**: Built with Next.js 16 (App Router, Turbopack, React 19, Tailwind CSS v4) featuring responsive catalog discovery, variant selectors, multi-step checkout, and real-time order tracking.
-- ⚙️ **Core Backend API**: Enterprise NestJS application with Helmet security headers, CORS origin whitelisting, Winston daily-rotate logging, class-validator sanitization, and TOTP two-factor authentication for admins.
+Built to mirror production architectures seen across industrial fintech, predictive systems, and real-time platforms, BazaarFlow LUXE coordinates:
+
+- 🛍️ **Customer Storefront & Admin Portal**: Built with Next.js 16 (App Router, Turbopack, React 19, Tailwind CSS v4) featuring responsive catalog discovery, variant selectors, multi-step checkout, authenticated customer profile/orders, and real-time order tracking.
+- ⚙️ **Core Backend API Gateway**: Enterprise NestJS microservices architecture with Helmet security headers, CORS origin whitelisting, Winston daily-rotate logging, class-validator sanitization, and TOTP two-factor authentication for administrators.
 - 💳 **Omnichannel Payment Engine**: Stripe Payment Intents with raw webhook signature validation and idempotent processing, alongside tokenized bKash checkout support.
-- 🔒 **Database Integrity**: PostgreSQL managed with TypeORM migrations, foreign keys, cascade constraints, and row-level pessimistic locking (`pessimistic_write`) to guarantee zero overselling.
+- 🔒 **Database Integrity & Concurrency**: PostgreSQL managed with TypeORM migrations, foreign keys, cascade constraints, and row-level pessimistic locking (`pessimistic_write`) to guarantee zero overselling.
 - ⚡ **Caching & Search**: Sub-10ms catalog querying via Meilisearch and distributed rate limiting with Upstash Redis.
 - 📧 **Transactional Notifications**: Automated order confirmations and tracking updates via Brevo transactional email engine.
+
+---
+
+## 🔄 End-to-End Workflow & Pipeline Architecture
+
+```mermaid
+flowchart TD
+    subgraph ClientLayer ["1. Client & Presentation Layer (Next.js 16 + React 19)"]
+        UI["Customer Storefront (/products, /cart, /checkout)"]
+        AuthUI["Auth Portal (/auth/login, /auth/register)"]
+        AdminUI["Admin Control Center (/admin/* with TOTP 2FA)"]
+    end
+
+    subgraph SecurityGateway ["2. Security & Gateway Layer (NestJS)"]
+        Sanitize["SanitizeGuard (XSS & Getter Protection)"]
+        Throttler["Rate Limiter (Upstash Redis Throttling)"]
+        AuthGuard["JWT & IP Whitelist Guards"]
+    end
+
+    subgraph CoreServices ["3. Business Logic & Transaction Services"]
+        ProductSvc["Products & Categories Engine"]
+        CouponSvc["Coupon Validation & Discount Engine"]
+        OrderSvc["Orders Service (Pessimistic Row Locking)"]
+        PaymentSvc["Payment Controller (Stripe & bKash)"]
+    end
+
+    subgraph DataPersistence ["4. Data & State Tier"]
+        DB[(Supabase PostgreSQL Pooler)]
+        Search[(Meilisearch Vector Index)]
+        Cache[(Redis Cache Cluster)]
+    end
+
+    subgraph ExternalServices ["5. External Gateways & Webhooks"]
+        StripeGW["Stripe Payment Gateway (Webhook whsec_*)"]
+        BkashGW["bKash Tokenized Gateway (Msisdn / Callback)"]
+        BrevoGW["Brevo Mailer (Order Invoices & Tracking)"]
+    end
+
+    UI --> Sanitize
+    AuthUI --> Sanitize
+    AdminUI --> Sanitize
+    Sanitize --> Throttler --> AuthGuard
+    AuthGuard --> ProductSvc & CouponSvc & OrderSvc & PaymentSvc
+    ProductSvc --> Search & DB & Cache
+    CouponSvc --> DB
+    OrderSvc -->|Pessimistic Write Lock| DB
+    PaymentSvc --> StripeGW & BkashGW
+    StripeGW -->|Signed Webhook| PaymentSvc
+    OrderSvc --> BrevoGW
+```
+
+### High-Integrity Workflow Lifecycle
+
+1. **Customer Registration & Session Establishment**:
+   - Customer submits details via `/auth/register` or `/auth/login`.
+   - Passwords hashed via bcrypt (`cost=10`). Sessions issue signed JWT access tokens with rotating HTTP-only refresh cookies.
+   - Session restoration seamlessly re-authenticates expired sessions across both client and server components.
+
+2. **Catalog Browsing, Dynamic Filtering & Live Cart**:
+   - Products retrieved via `/store/products` and `/store/categories` with sub-10ms cached responses.
+   - Client manages optimistic cart updates with synchronized local storage and variant-level pricing adjustments.
+
+3. **Authoritative Server-Side Checkout & Coupon Calculation**:
+   - Cart subtotal and delivery rates calculated dynamically.
+   - Coupons validated server-side for expiry, usage limits, and minimum spend requirements (`POST /store/coupons/validate`).
+   - Client-submitted totals are strictly un-trusted; discounts and grand totals are verified and recalculated within the backend order transaction.
+
+4. **Transactional Order Placement & Race-Condition Prevention**:
+   - `OrdersService.createOrder()` initiates an atomic PostgreSQL transaction.
+   - `pessimistic_write` locks are acquired on product and variant records to prevent concurrent overselling.
+   - Stock decrements atomically; if inventory is insufficient, the transaction rolls back immediately with zero state pollution.
+
+5. **Payment Processing & Idempotent Webhook Reconciliation**:
+   - **Stripe**: Client completes charge using Stripe Elements. Backend Stripe Webhook (`POST /store/payments/stripe/webhook`) verifies HMAC SHA256 signatures using raw request buffers.
+   - **Order State Transition**: Orders transition from `PENDING` to `PAID` exclusively after server-side payment confirmation. Duplicate webhook events are handled idempotently without re-triggering fulfillment or double-charging.
+   - **Failure & Cancellation Resilience**: If a payment fails or an order is cancelled, stock restoration triggers automatically and atomically restores item inventory once.
+
+6. **Order Fulfillment & Live Tracking**:
+   - Customers review real-time order history and shipment dispatch status via `/account/orders/:id`.
 
 ---
 
