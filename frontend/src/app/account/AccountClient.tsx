@@ -284,12 +284,12 @@ export function AccountClient({ initialTab }: AccountClientProps) {
             <article className="rounded-2xl border border-outline bg-panel p-4">
               <p className="text-xs uppercase tracking-wide text-muted">Primary</p>
               <p className="mt-2 text-sm font-semibold text-fg">Home</p>
-              <p className="mt-1 text-sm text-muted">House 31, Road 8, Dhanmondi, Dhaka</p>
+              <p className="mt-1 text-sm text-muted">Bandra West, Linking Road, Mumbai, Maharashtra 400050</p>
             </article>
             <article className="rounded-2xl border border-outline bg-panel p-4">
               <p className="text-xs uppercase tracking-wide text-muted">Secondary</p>
               <p className="mt-2 text-sm font-semibold text-fg">Office</p>
-              <p className="mt-1 text-sm text-muted">Plot 12, Sector 3, Uttara, Dhaka</p>
+              <p className="mt-1 text-sm text-muted">Connaught Place, Central Delhi, New Delhi 110001</p>
             </article>
           </div>
         ) : null}

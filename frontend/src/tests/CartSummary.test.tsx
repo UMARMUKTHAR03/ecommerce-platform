@@ -35,7 +35,7 @@ describe('CartSummary', () => {
     expect(screen.getByText(/2,000/)).toBeInTheDocument();
 
     const total = screen.getByTestId('cart-summary-total');
-    expect(total).toHaveTextContent(/BDT\s*1,720/);
+    expect(total).toHaveTextContent(/₹\s*1,720/);
   });
 
   it('applies valid coupon and shows discounted total', async () => {
@@ -63,7 +63,7 @@ describe('CartSummary', () => {
     });
 
     const total = screen.getByTestId('cart-summary-total');
-    expect(total).toHaveTextContent(/BDT\s*1,520/);
+    expect(total).toHaveTextContent(/₹\s*1,520/);
   });
 
   it('shows error message for invalid coupon', async () => {

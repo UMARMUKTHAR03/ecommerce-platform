@@ -78,6 +78,6 @@ Orders transition through strict state validation:
 Monetary safety is guaranteed by centralizing all arithmetic on the server:
 1. **Subtotal:** Server retrieves active database price (or discount price) for each SKU, ignoring client cart numbers.
 2. **Coupons:** Looked up against `coupons` table with active validity, expiration timestamp, usage count vs. limit, and minimum cart spend.
-3. **Delivery Fee:** Server-controlled (`standard` = 120 BDT, `express` = 220 BDT).
+3. **Delivery Fee:** Server-controlled (`standard` = ₹120 INR, `express` = ₹220 INR).
 4. **Grand Total:** $\text{Max}(0, \text{Subtotal} - \text{Discount} + \text{Shipping})$.
 5. **Stripe Charge:** Amount passed to Stripe PaymentIntent is calculated directly from the server order total converted to integer cents (`Math.round(total * 100)`).

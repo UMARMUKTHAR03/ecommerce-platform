@@ -51,7 +51,7 @@ export class OrdersService {
         streetAddress: dto.shippingAddress.streetAddress,
         city: dto.shippingAddress.city,
         postalCode: dto.shippingAddress.postalCode,
-        country: dto.shippingAddress.country || 'Bangladesh',
+        country: dto.shippingAddress.country || 'India',
       };
     } else if (dto.addressId) {
       const savedAddress = await this.addressRepository.findOne({
@@ -72,8 +72,8 @@ export class OrdersService {
           fullName: 'Customer',
           phone: '',
           streetAddress: dto.addressId,
-          city: 'Dhaka',
-          country: 'Bangladesh',
+          city: 'Mumbai',
+          country: 'India',
         };
       }
     } else {
@@ -81,8 +81,8 @@ export class OrdersService {
         fullName: 'Customer',
         phone: '',
         streetAddress: 'Default Address',
-        city: 'Dhaka',
-        country: 'Bangladesh',
+        city: 'Mumbai',
+        country: 'India',
       };
     }
 

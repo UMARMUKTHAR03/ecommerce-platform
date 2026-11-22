@@ -84,7 +84,7 @@ export class EmailService {
               ${item.product?.title ?? 'Product'} × ${item.quantity}
             </td>
             <td style="padding:10px 12px;border-bottom:1px solid #E2E8F0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#0F172A;text-align:right;">
-              ৳${Number(item.price).toFixed(2)}
+              ₹${Number(item.price).toFixed(2)}
             </td>
           </tr>
         `,
@@ -105,7 +105,7 @@ export class EmailService {
               ${itemRows}
               <tr>
                 <td style="padding:12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#0F172A;">Total</td>
-                <td style="padding:12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#0F172A;text-align:right;">৳${Number(order.total).toFixed(2)}</td>
+                <td style="padding:12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#0F172A;text-align:right;">₹${Number(order.total).toFixed(2)}</td>
               </tr>
             </table>
           </td>
@@ -126,7 +126,7 @@ export class EmailService {
       to: [{ email: customer.email, name: customer.name }],
       subject: `Order Confirmed • #${order.id.slice(0, 8)}`,
       htmlContent: html,
-      textContent: `Your order #${order.id.slice(0, 8)} is confirmed. Total ৳${Number(order.total).toFixed(2)}.`,
+      textContent: `Your order #${order.id.slice(0, 8)} is confirmed. Total ₹${Number(order.total).toFixed(2)}.`,
     });
   }
 
@@ -202,7 +202,7 @@ export class EmailService {
                   </td>
                   <td style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#0F172A;vertical-align:top;">
                     <strong>${item.title}</strong><br />
-                    Qty: ${item.quantity} • ৳${Number(item.price).toFixed(2)}
+                    Qty: ${item.quantity} • ₹${Number(item.price).toFixed(2)}
                   </td>
                 </tr>
               </table>

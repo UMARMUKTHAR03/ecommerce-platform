@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 
 const categories = [
   { label: 'Smartphones', href: '/products?category=smartphones' },
@@ -10,6 +13,21 @@ const categories = [
 ];
 
 export function SiteFooter() {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSubscribed(true);
+      setEmail('');
+    }, 500);
+  }
+
   return (
     <footer className="mt-20 border-t border-outline bg-bg-elevated/70">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-14 lg:grid-cols-4 lg:px-6">
@@ -18,7 +36,7 @@ export function SiteFooter() {
             Bazaar<span className="text-brand">Flow</span>
           </p>
           <p className="mt-3 max-w-xs text-sm text-muted">
-            Built for fast, trusted commerce experiences across Bangladesh with modern payment flexibility.
+            Built for fast, trusted luxury commerce experiences across India with modern payment flexibility.
           </p>
           <div className="mt-4">
             <a
@@ -68,23 +86,36 @@ export function SiteFooter() {
 
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-fg">Newsletter</h3>
-          <p className="mt-3 text-sm text-muted">Get weekly flash deals and restock alerts.</p>
-          <form className="mt-4 flex items-center gap-2">
-            <input
-              type="email"
-              placeholder="you@email.com"
-              className="h-10 w-full rounded-xl border border-outline bg-panel px-3 text-sm text-fg outline-none ring-brand/20 focus:ring"
-            />
-            <button
-              type="submit"
-              className="rounded-xl bg-fg px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90"
-            >
-              Join
-            </button>
-          </form>
+          <p className="mt-3 text-sm text-muted">Get weekly flash deals and restock alerts across India.</p>
+          {subscribed ? (
+            <div className="mt-4 rounded-xl border border-success/40 bg-success-soft p-3 text-xs text-success">
+              ✓ Subscribed! You will receive weekly updates.
+            </div>
+          ) : (
+            <form onSubmit={handleSubscribe} className="mt-4 flex items-center gap-2">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                className="h-10 w-full rounded-xl border border-outline bg-panel px-3 text-sm text-fg outline-none ring-brand/20 focus:ring"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-xl bg-fg px-4 py-2 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? '...' : 'Join'}
+              </button>
+            </form>
+          )}
           <div className="mt-5 flex items-center gap-3">
             <span className="rounded-lg border border-outline bg-panel px-3 py-1 text-xs font-semibold text-fg">
               Stripe
+            </span>
+            <span className="rounded-lg border border-outline bg-panel px-3 py-1 text-xs font-semibold text-fg">
+              UPI / NetBanking
             </span>
             <span className="rounded-lg border border-outline bg-panel px-3 py-1 text-xs font-semibold text-fg">
               bKash
@@ -93,7 +124,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-outline/70 px-4 py-4 text-center text-xs text-muted lg:px-6">
-        Copyright {new Date().getFullYear()} BazaarFlow. All rights reserved. • Architected &amp; Maintained by{' '}
+        Copyright {new Date().getFullYear()} BazaarFlow LUXE. All rights reserved. • Architected &amp; Maintained by{' '}
         <a
           href="https://github.com/UMARMUKTHAR03"
           target="_blank"

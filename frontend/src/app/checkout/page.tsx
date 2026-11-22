@@ -45,7 +45,7 @@ export default function CheckoutPage() {
     fullName: '',
     phone: '',
     address: '',
-    city: 'Dhaka',
+    city: 'Mumbai',
     postcode: '',
   });
 
@@ -104,7 +104,7 @@ export default function CheckoutPage() {
 
   async function placeOrder() {
     if (!isAuthenticated) {
-      setError('Please login before placing an order.');
+      setError('Please login or create an account to securely place your order.');
       return;
     }
 
@@ -130,7 +130,7 @@ export default function CheckoutPage() {
           streetAddress: address.address,
           city: address.city,
           postalCode: address.postcode,
-          country: 'Bangladesh',
+          country: 'India',
         },
         deliveryMethod,
         couponCode: (appliedCoupon?.code || couponCode.trim()).toUpperCase() || undefined,
@@ -259,7 +259,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">Standard Delivery</p>
-                <p className="text-xs text-muted">2-4 business days — ৳120</p>
+                <p className="text-xs text-muted">2-4 business days — ₹120</p>
               </span>
               <input
                 type="radio"
@@ -271,7 +271,7 @@ export default function CheckoutPage() {
             <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
               <span>
                 <p className="font-semibold text-fg">Express Delivery</p>
-                <p className="text-xs text-muted">Next day in major cities — ৳220</p>
+                <p className="text-xs text-muted">Next day across major Indian metros — ₹220</p>
               </span>
               <input
                 type="radio"
@@ -338,13 +338,26 @@ export default function CheckoutPage() {
                 {address.city} {address.postcode}
               </p>
               <p className="mt-2 text-xs text-fg">
-                Delivery: <span className="capitalize">{deliveryMethod}</span> (৳{shipping})
+                Delivery: <span className="capitalize">{deliveryMethod}</span> (₹{shipping})
               </p>
             </div>
 
             {error ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
 
-            {placedOrderId && isPaymentComplete ? (
+            {!isAuthenticated ? (
+              <div className="rounded-xl border border-brand/40 bg-brand/10 p-4">
+                <p className="text-sm font-semibold text-fg">Account Authentication Required</p>
+                <p className="mt-1 text-xs text-muted">
+                  You must be logged in to your BazaarFlow account to finalize and pay for this order.
+                </p>
+                <Link
+                  href="/auth/login?redirect=/checkout"
+                  className="mt-3 inline-flex items-center justify-center rounded-xl bg-fg px-4 py-2 text-xs font-semibold text-bg transition hover:opacity-90"
+                >
+                  Sign In to Continue Checkout
+                </Link>
+              </div>
+            ) : placedOrderId && isPaymentComplete ? (
               <div className="space-y-3 rounded-xl border border-success bg-success-soft p-4">
                 <p className="text-sm font-semibold text-success">Order payment confirmed.</p>
                 {paymentReference ? (

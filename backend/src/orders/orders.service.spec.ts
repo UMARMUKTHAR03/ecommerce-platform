@@ -159,7 +159,7 @@ describe('OrdersService', () => {
           fullName: 'Umar Mukthar',
           phone: '+8801700000000',
           streetAddress: '128 Gulshan Ave',
-          city: 'Dhaka',
+          city: 'Mumbai',
         },
       });
 

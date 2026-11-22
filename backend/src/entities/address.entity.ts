@@ -40,7 +40,7 @@ export class Address {
   @Column({ name: 'postal_code', type: 'varchar', length: 30, nullable: true })
   postalCode!: string | null;
 
-  @Column({ type: 'varchar', length: 100, default: 'Bangladesh' })
+  @Column({ type: 'varchar', length: 100, default: 'India' })
   country!: string;
 
   @Column({ name: 'is_default', type: 'boolean', default: false })
