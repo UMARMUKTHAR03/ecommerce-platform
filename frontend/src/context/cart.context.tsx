@@ -101,6 +101,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     const addItem = (product: Product, quantity = 1, variant?: ProductVariant) => {
+      if (!product || !product.id) {
+        return;
+      }
+
       setItems((current) => {
         const targetId = variant ? `${product.id}:${variant.id}` : product.id;
         const existing = current.find((item) => (item.cartItemId || item.productId) === targetId);

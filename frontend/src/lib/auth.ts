@@ -9,19 +9,36 @@ interface AuthResponse {
 }
 
 const TOKEN_KEY = 'bf_access_token';
+const REFRESH_TOKEN_KEY = 'bf_refresh_token';
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setStoredToken(token: string | null) {
+export function getStoredRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setStoredTokens(accessToken: string | null, refreshToken?: string | null) {
   if (typeof window === 'undefined') return;
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+  if (accessToken) {
+    localStorage.setItem(TOKEN_KEY, accessToken);
   } else {
     localStorage.removeItem(TOKEN_KEY);
   }
+  if (refreshToken !== undefined) {
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    } else {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
+  }
+}
+
+export function setStoredToken(token: string | null) {
+  setStoredTokens(token);
 }
 
 export async function login(email: string, password: string) {
@@ -30,14 +47,17 @@ export async function login(email: string, password: string) {
     password,
   });
   if (res.tokens?.accessToken) {
-    setStoredToken(res.tokens.accessToken);
+    setStoredTokens(res.tokens.accessToken, res.tokens.refreshToken);
   }
   return res;
 }
 
 export async function logout() {
-  setStoredToken(null);
-  return apiPost<{ success: boolean }>('/store/auth/logout', {});
+  const currentRefreshToken = getStoredRefreshToken();
+  setStoredTokens(null, null);
+  return apiPost<{ success: boolean }>('/store/auth/logout', {
+    refreshToken: currentRefreshToken || undefined,
+  });
 }
 
 export async function register(name: string, email: string, password: string, phone?: string) {
@@ -48,7 +68,7 @@ export async function register(name: string, email: string, password: string, ph
     phone: phone || undefined,
   });
   if (res.tokens?.accessToken) {
-    setStoredToken(res.tokens.accessToken);
+    setStoredTokens(res.tokens.accessToken, res.tokens.refreshToken);
   }
   return res;
 }
@@ -58,18 +78,18 @@ export async function getUser() {
     const response = await apiGet<Record<string, unknown>>('/store/auth/me');
     return response;
   } catch {
-    // If access token has expired or not present, attempt a session refresh using refresh_token cookie
+    // If access token has expired or not present, attempt a session refresh
     try {
       const refreshed = await refreshSession();
       if (refreshed?.tokens?.accessToken) {
-        setStoredToken(refreshed.tokens.accessToken);
+        setStoredTokens(refreshed.tokens.accessToken, refreshed.tokens.refreshToken);
       }
       if (refreshed?.customer) {
         return refreshed.customer;
       }
       return await apiGet<Record<string, unknown>>('/store/auth/me');
     } catch {
-      setStoredToken(null);
+      setStoredTokens(null, null);
       return null;
     }
   }
@@ -81,5 +101,8 @@ export async function isAuthenticated() {
 }
 
 export async function refreshSession() {
-  return apiPost<AuthResponse>('/store/auth/refresh', {});
+  const storedRefreshToken = getStoredRefreshToken();
+  return apiPost<AuthResponse>('/store/auth/refresh', {
+    refreshToken: storedRefreshToken || undefined,
+  });
 }

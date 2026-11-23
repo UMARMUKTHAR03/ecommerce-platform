@@ -118,34 +118,48 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      const invalidItems = items.filter((item) => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      // Validate Product IDs
+      const invalidProduct = items.find((item) => {
         const pid = (item.productId || '').trim();
-        return !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+        return !uuidRegex.test(pid);
       });
 
-      if (invalidItems.length > 0) {
-        setError(`Item "${invalidItems[0].title || 'Unknown'}" has an outdated product identifier. Please remove it from your cart and select an updated product from the store.`);
+      if (invalidProduct) {
+        setError(`Item "${invalidProduct.title || 'Product'}" has an invalid product ID. Please update this item in your cart.`);
         return;
       }
 
-      const validItems = items.map((item) => {
+      // Validate Variant IDs when a variant is selected
+      const invalidVariant = items.find((item) => {
+        if (!item.variantId) return false;
+        const vid = item.variantId.trim();
+        return !uuidRegex.test(vid);
+      });
+
+      if (invalidVariant) {
+        setError(`The selected variant "${invalidVariant.variantTitle || 'Option'}" for "${invalidVariant.title}" has an invalid identifier. Please re-select the variant before checkout.`);
+        return;
+      }
+
+      const orderItems = items.map((item) => {
         const pid = (item.productId || '').trim();
         const vid = item.variantId ? item.variantId.trim() : undefined;
-        const isValidVariant = vid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vid);
         return {
           productId: pid,
-          variantId: isValidVariant ? vid : undefined,
+          variantId: vid,
           quantity: Math.max(1, Number(item.quantity) || 1),
         };
       });
 
-      if (!validItems.length) {
+      if (!orderItems.length) {
         setError('Your cart is empty. Please add products to your cart before completing checkout.');
         return;
       }
 
       const payload = await apiPost<{ id: string }>('/store/orders', {
-        items: validItems,
+        items: orderItems,
         shippingAddress: {
           fullName: address.fullName,
           phone: address.phone,

@@ -84,17 +84,19 @@ async function bootstrap() {
   // Auto-run pending database migrations on startup if DATABASE_URL is configured
   const dbUrl = configService.get<string>('DATABASE_URL');
   if (dbUrl) {
+    const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
     try {
-      const { AppDataSource } = await import('./database/data-source');
+      const { AppDataSource } = await import('./database/data-source.js');
       if (!AppDataSource.isInitialized) {
         await AppDataSource.initialize();
       }
       const migrations = await AppDataSource.runMigrations();
-      const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
       logger.log(`Executed ${migrations.length} database migration(s) on startup.`);
     } catch (migErr) {
-      const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
-      logger.warn(`Startup database migration check note: ${(migErr as Error).message}`);
+      logger.error(`Startup database migration failed: ${(migErr as Error).message}`, (migErr as Error).stack);
+      if (isProduction) {
+        throw migErr;
+      }
     }
   }
 

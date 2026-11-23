@@ -127,14 +127,40 @@ async function refreshSession(): Promise<boolean> {
   }
 
   const base = getApiBase();
+  const storedRefreshToken = localStorage.getItem('bf_refresh_token');
+
   refreshPromise = fetch(`${base}/store/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(),
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      refreshToken: storedRefreshToken || undefined,
+    }),
   })
-    .then((response) => response.ok)
-    .catch(() => false)
+    .then(async (response) => {
+      if (!response.ok) {
+        localStorage.removeItem('bf_access_token');
+        localStorage.removeItem('bf_refresh_token');
+        return false;
+      }
+      const payload = await response.json().catch(() => null);
+      const data = isEnvelope<{ tokens?: { accessToken: string; refreshToken: string } }>(payload)
+        ? payload.data
+        : (payload as { tokens?: { accessToken: string; refreshToken: string } } | null);
+
+      if (data?.tokens?.accessToken) {
+        localStorage.setItem('bf_access_token', data.tokens.accessToken);
+        if (data.tokens.refreshToken) {
+          localStorage.setItem('bf_refresh_token', data.tokens.refreshToken);
+        }
+      }
+      return true;
+    })
+    .catch(() => {
+      localStorage.removeItem('bf_access_token');
+      localStorage.removeItem('bf_refresh_token');
+      return false;
+    })
     .finally(() => {
       refreshPromise = null;
     });

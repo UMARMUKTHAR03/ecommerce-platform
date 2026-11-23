@@ -214,7 +214,7 @@ describe('StripeService Atomic Payment Finalization', () => {
         object: {
           id: 'pi_failed_123',
           amount: 50000,
-          currency: 'bdt',
+          currency: 'inr',
           metadata: { orderId: 'order-123' },
         },
       },
