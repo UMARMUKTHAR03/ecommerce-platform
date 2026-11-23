@@ -172,14 +172,16 @@ export function AccountClient({ initialTab }: AccountClientProps) {
                       <Link href={`/account/orders/${order.id}`} className="font-medium text-fg underline">
                         View details
                       </Link>
-                      <a
-                        href="https://track.redx.com.bd"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-fg underline"
-                      >
-                        Tracking
-                      </a>
+                      {order.trackingNumber ? (
+                        <a
+                          href="https://redx.com.bd/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-medium text-fg underline"
+                        >
+                          Track on REDX
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 </article>

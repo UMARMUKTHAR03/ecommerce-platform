@@ -68,6 +68,9 @@ export class Order {
   @Column({ name: 'payment_reference', type: 'varchar', length: 255, nullable: true })
   paymentReference!: string | null;
 
+  @Column({ name: 'tracking_number', type: 'varchar', length: 100, nullable: true })
+  trackingNumber!: string | null;
+
   @Index('idx_orders_customer_id')
   @Column({ name: 'customer_id', type: 'uuid' })
   customerId!: string;

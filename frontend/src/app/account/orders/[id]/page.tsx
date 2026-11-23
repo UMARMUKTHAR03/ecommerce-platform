@@ -16,6 +16,7 @@ export default function OrderDetailPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!orderId || !isAuthenticated) {
@@ -121,15 +122,43 @@ export default function OrderDetailPage() {
             </div>
           </div>
         </div>
+      </section>
 
-        <a
-          href="https://track.redx.com.bd"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-5 inline-flex rounded-xl border border-outline px-4 py-2 text-sm font-semibold text-fg transition hover:border-fg/50"
-        >
-          Courier tracking link
-        </a>
+      <section className="rounded-2xl border border-outline bg-panel p-6">
+        <h2 className="text-lg font-semibold text-fg">Shipping & Tracking</h2>
+        {order.trackingNumber ? (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted">
+                Tracking Number: <span className="font-semibold text-fg">{order.trackingNumber}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(order.trackingNumber!).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }).catch(() => undefined);
+                }}
+                className="rounded-lg border border-outline px-3 py-1 text-xs font-medium text-fg transition hover:border-fg/50"
+              >
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+            <a
+              href="https://redx.com.bd/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex rounded-xl border border-outline px-4 py-2 text-sm font-semibold text-fg transition hover:border-fg/50"
+            >
+              Track on REDX ↗
+            </a>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-muted">
+            A tracking number has not yet been assigned. You will be notified once your order is dispatched.
+          </p>
+        )}
       </section>
     </div>
   );

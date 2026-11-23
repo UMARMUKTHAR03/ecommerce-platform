@@ -72,6 +72,7 @@ export interface Order {
   total: string;
   paymentMethod: string;
   paymentReference: string | null;
+  trackingNumber: string | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;

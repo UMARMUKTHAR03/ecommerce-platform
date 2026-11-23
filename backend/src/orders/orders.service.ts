@@ -353,6 +353,9 @@ export class OrdersService {
     }
 
     order.status = dto.status;
+    if (dto.trackingNumber !== undefined) {
+      order.trackingNumber = dto.trackingNumber || null;
+    }
     const saved = await this.orderRepository.save(order);
     this.logger.log(`Order status updated: ${saved.id} ${previousStatus} -> ${saved.status}`);
 
@@ -371,7 +374,7 @@ export class OrdersService {
             fullOrder,
             fullOrder.customer,
             fullOrder.status,
-            'https://track.redx.com.bd',
+            'https://redx.com.bd/',
           )
           .catch((error: unknown) => {
             this.logger.warn(

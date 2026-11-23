@@ -35,6 +35,7 @@ export interface Order {
   total: number;
   paymentMethod?: string;
   paymentReference?: string;
+  trackingNumber?: string;
   items: OrderItem[];
   createdAt: string;
 }
