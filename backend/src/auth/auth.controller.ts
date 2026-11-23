@@ -56,6 +56,7 @@ export class AuthController {
 
     return {
       customer: result.customer,
+      tokens: result.tokens,
     };
   }
 
@@ -68,6 +69,7 @@ export class AuthController {
 
     return {
       customer: result.customer,
+      tokens: result.tokens,
     };
   }
 

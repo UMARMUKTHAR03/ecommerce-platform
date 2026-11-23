@@ -60,6 +60,13 @@ function buildHeaders(headers?: HeadersInit): Headers {
     nextHeaders.set('Content-Type', 'application/json');
   }
 
+  if (typeof window !== 'undefined' && !nextHeaders.has('Authorization')) {
+    const token = localStorage.getItem('bf_access_token');
+    if (token) {
+      nextHeaders.set('Authorization', `Bearer ${token}`);
+    }
+  }
+
   return nextHeaders;
 }
 
