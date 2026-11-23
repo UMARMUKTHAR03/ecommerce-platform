@@ -89,7 +89,7 @@ flowchart TD
         ProductSvc["Products & Categories Engine"]
         CouponSvc["Coupon Validation & Discount Engine"]
         OrderSvc["Orders Service (Pessimistic Row Locking)"]
-        PaymentSvc["Payment Controller (Stripe & bKash)"]
+        PaymentSvc["Payment Controller (Stripe Gateway)"]
     end
 
     subgraph DataPersistence ["4. Data & State Tier"]
@@ -100,7 +100,6 @@ flowchart TD
 
     subgraph ExternalServices ["5. External Gateways & Webhooks"]
         StripeGW["Stripe Payment Gateway (Webhook whsec_*)"]
-        BkashGW["bKash Tokenized Gateway (Msisdn / Callback)"]
         BrevoGW["Brevo Mailer (Order Invoices & Tracking)"]
     end
 
@@ -112,7 +111,7 @@ flowchart TD
     ProductSvc --> Search & DB & Cache
     CouponSvc --> DB
     OrderSvc -->|Pessimistic Write Lock| DB
-    PaymentSvc --> StripeGW & BkashGW
+    PaymentSvc --> StripeGW
     StripeGW -->|Signed Webhook| PaymentSvc
     OrderSvc --> BrevoGW
 ```
@@ -157,7 +156,7 @@ graph TD
     B -->|Pessimistic Row Lock| D["PostgreSQL Database (Supabase / Render)"]
     B -->|Sub-10ms Catalog Search| E["Meilisearch Vector & Keyword Index"]
     B -->|Distributed Cache & Throttling| F["Upstash Redis Cluster"]
-    B -->|Idempotent Webhooks| G["Stripe & bKash Payment Gateways"]
+    B -->|Idempotent Webhooks| G["Stripe Payment Gateway"]
     B -->|Transactional Order Emails| H["Brevo Mailer Engine"]
 ```
 

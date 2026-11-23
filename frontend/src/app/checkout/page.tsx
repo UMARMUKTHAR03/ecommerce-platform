@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/EmptyState';
-import { BkashCheckout } from '@/components/payments/BkashCheckout';
 import { StripeCheckout } from '@/components/payments/StripeCheckout';
 import { apiGet, apiPost } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
@@ -25,7 +24,7 @@ export default function CheckoutPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState<'standard' | 'express'>('standard');
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'bkash'>('stripe');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe'>('stripe');
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
@@ -370,18 +369,6 @@ export default function CheckoutPage() {
                 onChange={() => setPaymentMethod('stripe')}
               />
             </label>
-            <label className="flex cursor-pointer items-center justify-between rounded-xl border border-outline bg-bg-elevated p-4">
-              <span>
-                <p className="font-semibold text-fg">bKash</p>
-                <p className="text-xs text-muted">Checkout with bKash mobile payment</p>
-              </span>
-              <input
-                type="radio"
-                name="payment"
-                checked={paymentMethod === 'bkash'}
-                onChange={() => setPaymentMethod('bkash')}
-              />
-            </label>
             <button
               type="button"
               onClick={() => setStep(4)}
@@ -453,19 +440,6 @@ export default function CheckoutPage() {
                     } catch {
                       setPaymentComplete(true);
                     }
-                  }}
-                  onFailed={(message) => setError(message)}
-                />
-              </div>
-            ) : placedOrderId && paymentMethod === 'bkash' ? (
-              <div className="space-y-3 rounded-xl border border-outline bg-bg-elevated p-4">
-                <p className="text-sm text-muted">Order created (#{placedOrderId.slice(0, 8)}). Continue with bKash checkout.</p>
-                <BkashCheckout
-                  orderId={placedOrderId}
-                  onPaid={(reference) => {
-                    setPaymentReference(reference);
-                    setPaymentComplete(true);
-                    clearCart();
                   }}
                   onFailed={(message) => setError(message)}
                 />

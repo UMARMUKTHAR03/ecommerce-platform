@@ -11,7 +11,7 @@ The BazaarFlow Backend is a high-throughput, modular NestJS REST API and event p
 
 ### Key Capabilities
 - **Storefront Endpoints**: Product catalog, multi-category tree hierarchy, search fallback, inventory counters.
-- **Cart & Checkout Gateway**: Stripe Payment Intents, Stripe Webhooks, bKash Create/Execute payment flow.
+- **Cart & Checkout Gateway**: Stripe Payment Intents, Stripe Webhooks.
 - **Security & Guards**: Helmet HTTP security headers, Winston structured log rotation, throttled rate limiting, JWT + HTTP-only cookies.
 - **Admin Management**: TOTP 2FA admin authentication, order status mutation, inventory restocking triggers.
 

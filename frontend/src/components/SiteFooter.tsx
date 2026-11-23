@@ -115,10 +115,7 @@ export function SiteFooter() {
               Stripe
             </span>
             <span className="rounded-lg border border-outline bg-panel px-3 py-1 text-xs font-semibold text-fg">
-              UPI / NetBanking
-            </span>
-            <span className="rounded-lg border border-outline bg-panel px-3 py-1 text-xs font-semibold text-fg">
-              bKash
+              Cards &amp; Wallets
             </span>
           </div>
         </div>

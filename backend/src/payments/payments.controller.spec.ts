@@ -1,18 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
-import { PaymentStatus } from '../entities/payment.entity';
 
-describe('PaymentsController bKash Verification', () => {
+describe('PaymentsController Stripe Integration', () => {
   let controller: PaymentsController;
   let mockOrdersService: any;
   let mockStripeService: any;
-  let mockBkashService: any;
-  let mockEmailService: any;
-  let mockConfigService: any;
-  let mockPaymentRepo: any;
 
   const mockOrder = {
-    id: 'order-bkash-123',
+    id: 'order-stripe-123',
     customerId: 'cust-1',
     total: '1250.00',
     customer: { email: 'user@bazaarflow.com' },
@@ -24,152 +19,54 @@ describe('PaymentsController bKash Verification', () => {
       finalizePaidOrder: jest.fn().mockResolvedValue(mockOrder),
     };
 
-    mockStripeService = {};
-
-    mockBkashService = {
-      queryPayment: jest.fn(),
-      executePayment: jest.fn(),
-    };
-
-    mockEmailService = {
-      sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
-    };
-
-    mockConfigService = {
-      get: jest.fn(),
-    };
-
-    mockPaymentRepo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((d: any) => ({ id: 'p-1', ...d })),
-      save: jest.fn((d: any) => Promise.resolve(d)),
+    mockStripeService = {
+      createPaymentIntent: jest.fn().mockResolvedValue({
+        id: 'pi_test_123',
+        client_secret: 'pi_test_123_secret',
+      }),
+      handleWebhook: jest.fn().mockResolvedValue({ received: true }),
     };
 
     controller = new PaymentsController(
       mockOrdersService,
       mockStripeService,
-      mockBkashService,
-      mockEmailService,
-      mockConfigService,
-      mockPaymentRepo,
     );
   });
 
-  it('rejects execution when status is failed or pending', async () => {
-    mockBkashService.queryPayment.mockResolvedValue({
-      statusCode: '2023',
-      status: 'Pending',
-    });
-    mockBkashService.executePayment.mockResolvedValue({
-      statusCode: '2023',
-      transactionStatus: 'Failed',
-    });
+  it('creates Stripe payment intent for valid order and authenticated customer', async () => {
+    const res = await controller.createStripeIntent(
+      { sub: 'cust-1' },
+      { orderId: 'order-stripe-123' },
+    );
 
+    expect(mockOrdersService.getOrderForPayment).toHaveBeenCalledWith('order-stripe-123', 'cust-1');
+    expect(mockStripeService.createPaymentIntent).toHaveBeenCalledWith(
+      125000,
+      'inr',
+      'order-stripe-123',
+      'user@bazaarflow.com',
+    );
+    expect(res).toEqual({
+      orderId: 'order-stripe-123',
+      paymentIntentId: 'pi_test_123',
+      clientSecret: 'pi_test_123_secret',
+    });
+  });
+
+  it('throws BadRequestException when Stripe signature is missing in webhook', async () => {
     await expect(
-      controller.executeBkashPayment(
-        { sub: 'cust-1' },
-        { orderId: 'order-bkash-123', paymentId: 'pay-123' },
-      ),
+      controller.stripeWebhook({ body: {} } as any, undefined),
     ).rejects.toThrow(BadRequestException);
-
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
   });
 
-  it('rejects execution when currency is not BDT', async () => {
-    mockBkashService.queryPayment.mockResolvedValue({
-      statusCode: '0000',
-      transactionStatus: 'Completed',
-      currency: 'USD',
-      amount: '1250.00',
-      paymentID: 'pay-123',
-      merchantInvoiceNumber: 'order-bkash-123',
-    });
+  it('delegates valid webhook to StripeService', async () => {
+    const mockRequest = { body: Buffer.from('{"id":"evt_1"}') };
+    const res = await controller.stripeWebhook(mockRequest as any, 'test_sig');
 
-    await expect(
-      controller.executeBkashPayment(
-        { sub: 'cust-1' },
-        { orderId: 'order-bkash-123', paymentId: 'pay-123' },
-      ),
-    ).rejects.toThrow('bKash currency mismatch: expected BDT, received USD');
-
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
-  });
-
-  it('rejects execution when amount does not match order total', async () => {
-    mockBkashService.queryPayment.mockResolvedValue({
-      statusCode: '0000',
-      transactionStatus: 'Completed',
-      currency: 'BDT',
-      amount: '500.00', // expected 1250.00
-      paymentID: 'pay-123',
-      merchantInvoiceNumber: 'order-bkash-123',
-    });
-
-    await expect(
-      controller.executeBkashPayment(
-        { sub: 'cust-1' },
-        { orderId: 'order-bkash-123', paymentId: 'pay-123' },
-      ),
-    ).rejects.toThrow(/bKash amount mismatch/);
-
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
-  });
-
-  it('rejects execution when merchant invoice does not match order ID', async () => {
-    mockBkashService.queryPayment.mockResolvedValue({
-      statusCode: '0000',
-      transactionStatus: 'Completed',
-      currency: 'BDT',
-      amount: '1250.00',
-      paymentID: 'pay-123',
-      merchantInvoiceNumber: 'different-order-999',
-    });
-
-    await expect(
-      controller.executeBkashPayment(
-        { sub: 'cust-1' },
-        { orderId: 'order-bkash-123', paymentId: 'pay-123' },
-      ),
-    ).rejects.toThrow('bKash merchant invoice does not match order ID');
-
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
-  });
-
-  it('skips processing if payment is already recorded as COMPLETED (idempotency)', async () => {
-    mockPaymentRepo.findOne.mockResolvedValue({
-      id: 'existing-payment',
-      transactionId: 'pay-123',
-      status: PaymentStatus.COMPLETED,
-    });
-
-    const res = await controller.executeBkashPayment(
-      { sub: 'cust-1' },
-      { orderId: 'order-bkash-123', paymentId: 'pay-123' },
+    expect(mockStripeService.handleWebhook).toHaveBeenCalledWith(
+      mockRequest.body,
+      'test_sig',
     );
-
-    expect(res.alreadyProcessed).toBe(true);
-    expect(mockBkashService.queryPayment).not.toHaveBeenCalled();
-    expect(mockOrdersService.finalizePaidOrder).not.toHaveBeenCalled();
-  });
-
-  it('successfully verifies and finalizes order when all transaction attributes match', async () => {
-    mockBkashService.queryPayment.mockResolvedValue({
-      statusCode: '0000',
-      transactionStatus: 'Completed',
-      currency: 'BDT',
-      amount: '1250.00',
-      paymentID: 'pay-123',
-      merchantInvoiceNumber: 'order-bkash-123',
-    });
-
-    const res = await controller.executeBkashPayment(
-      { sub: 'cust-1' },
-      { orderId: 'order-bkash-123', paymentId: 'pay-123' },
-    );
-
-    expect(res.status).toBe('completed');
-    expect(mockOrdersService.finalizePaidOrder).toHaveBeenCalledWith('order-bkash-123', 'pay-123');
-    expect(mockPaymentRepo.save).toHaveBeenCalled();
-    expect(mockEmailService.sendOrderConfirmation).toHaveBeenCalled();
+    expect(res).toEqual({ received: true });
   });
 });
