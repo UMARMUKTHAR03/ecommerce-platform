@@ -28,7 +28,7 @@ export class AdminAuthController {
     response.cookie('admin_access_token', result.accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000,
       path: '/',
       domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
@@ -53,7 +53,7 @@ export class AdminAuthController {
     response.clearCookie('admin_access_token', {
       httpOnly: true,
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'none',
       path: '/',
       domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });

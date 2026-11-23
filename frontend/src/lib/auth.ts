@@ -74,11 +74,23 @@ export async function register(name: string, email: string, password: string, ph
 }
 
 export async function getUser() {
+  const currentToken = getStoredToken();
+  const currentRefreshToken = getStoredRefreshToken();
+
+  // If customer has no stored token or refresh token, they are simply not logged in
+  if (!currentToken && !currentRefreshToken) {
+    return null;
+  }
+
   try {
     const response = await apiGet<Record<string, unknown>>('/store/auth/me');
     return response;
   } catch {
-    // If access token has expired or not present, attempt a session refresh
+    // If access token has expired or invalid, attempt session refresh only if refresh token exists
+    if (!currentRefreshToken) {
+      setStoredTokens(null, null);
+      return null;
+    }
     try {
       const refreshed = await refreshSession();
       if (refreshed?.tokens?.accessToken) {

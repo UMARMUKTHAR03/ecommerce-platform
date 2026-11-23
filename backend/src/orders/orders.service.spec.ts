@@ -292,5 +292,28 @@ describe('OrdersService', () => {
       expect(mockProd.stock).toBe(7); // Restored from 5 to 7
       expect(mockProductRepo.save).toHaveBeenCalledWith(mockProd);
     });
+
+    it('updates tracking number when provided', async () => {
+      mockOrderRepo.findOneBy.mockResolvedValue({
+        id: 'order-123',
+        status: OrderStatus.PAID,
+        trackingNumber: null,
+      });
+      mockOrderRepo.save.mockImplementation((o: any) => Promise.resolve(o));
+
+      const result = await service.updateOrderStatus('order-123', {
+        status: OrderStatus.SHIPPED,
+        trackingNumber: 'REDX-TEST-998877',
+      });
+
+      expect(result.status).toBe(OrderStatus.SHIPPED);
+      expect(result.trackingNumber).toBe('REDX-TEST-998877');
+      expect(mockOrderRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: OrderStatus.SHIPPED,
+          trackingNumber: 'REDX-TEST-998877',
+        }),
+      );
+    });
   });
 });

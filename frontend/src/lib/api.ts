@@ -12,8 +12,14 @@ const SERVER_API_BASE =
 const BROWSER_API_BASE =
   process.env.NEXT_PUBLIC_API_URL || '/api/backend';
 
-function getApiBase(): string {
+function getApiBase(path?: string): string {
   if (typeof window !== 'undefined') {
+    // For admin endpoints, always use the same-origin Next.js rewrite (/api/backend)
+    // to guarantee 100% first-party cookie transmission and prevent any cross-site
+    // third-party cookie blocking in Safari, Chrome Incognito, or iOS browsers.
+    if (path && (path.startsWith('/admin') || path.startsWith('admin'))) {
+      return '/api/backend';
+    }
     return BROWSER_API_BASE;
   }
   return SERVER_API_BASE;
@@ -54,13 +60,19 @@ function isEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
   return 'data' in payload;
 }
 
-function buildHeaders(headers?: HeadersInit): Headers {
+function buildHeaders(headers?: HeadersInit, path?: string): Headers {
   const nextHeaders = new Headers(headers);
   if (!nextHeaders.has('Content-Type')) {
     nextHeaders.set('Content-Type', 'application/json');
   }
 
-  if (typeof window !== 'undefined' && !nextHeaders.has('Authorization')) {
+  // Only attach customer bearer token for non-admin requests
+  // Admin requests rely strictly on secure HttpOnly cookies (with credentials: 'include')
+  if (
+    typeof window !== 'undefined' &&
+    !nextHeaders.has('Authorization') &&
+    (!path || (!path.startsWith('/admin') && !path.startsWith('admin')))
+  ) {
     const token = localStorage.getItem('bf_access_token');
     if (token) {
       nextHeaders.set('Authorization', `Bearer ${token}`);
@@ -129,6 +141,10 @@ async function refreshSession(): Promise<boolean> {
   const base = getApiBase();
   const storedRefreshToken = localStorage.getItem('bf_refresh_token');
 
+  if (!storedRefreshToken) {
+    return false;
+  }
+
   refreshPromise = fetch(`${base}/store/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
@@ -177,11 +193,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     ...rest
   } = options;
 
-  const base = getApiBase();
+  const base = getApiBase(path);
   const response = await fetch(`${base}${path}`, {
     ...rest,
     credentials,
-    headers: buildHeaders(headers),
+    headers: buildHeaders(headers, path),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -189,7 +205,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     response.status === 401 &&
     retryOnUnauthorized &&
     typeof window !== 'undefined' &&
-    !path.startsWith('/store/auth/refresh')
+    !path.startsWith('/store/auth/refresh') &&
+    !path.startsWith('/admin') &&
+    !path.startsWith('admin')
   ) {
     const refreshed = await refreshSession();
     if (refreshed) {

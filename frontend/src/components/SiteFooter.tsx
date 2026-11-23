@@ -81,6 +81,11 @@ export function SiteFooter() {
                 Shipping Details
               </Link>
             </li>
+            <li>
+              <Link href="/admin/login" className="transition hover:text-fg">
+                Admin Portal
+              </Link>
+            </li>
           </ul>
         </div>
 

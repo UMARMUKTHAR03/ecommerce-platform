@@ -37,11 +37,13 @@ export class AdminJwtGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user?: Record<string, unknown> }>();
     const authorization = request.headers.authorization;
 
-    const bearerToken = authorization?.startsWith('Bearer ')
-      ? authorization.slice(7)
-      : null;
-    const cookieToken = readCookie(request, 'admin_access_token');
-    const token = bearerToken ?? cookieToken;
+    // Security rule: If a customer or other non-admin Bearer token is presented,
+    // explicitly reject it with ForbiddenException to prevent token confusion or spoofing.
+    if (authorization) {
+      throw new ForbiddenException('Admin endpoints require cookie authentication only. Bearer tokens are not accepted.');
+    }
+
+    const token = readCookie(request, 'admin_access_token');
 
     if (!token) {
       throw new UnauthorizedException('Admin authentication token is required');
@@ -53,11 +55,14 @@ export class AdminJwtGuard implements CanActivate {
       });
 
       const roles = payload.roles;
+      const role = String(payload.role || '').toLowerCase();
       const hasAdminRole =
-        payload.role === 'admin' ||
+        role === 'admin' ||
+        role === 'superadmin' ||
+        role === 'manager' ||
         payload.isAdmin === true ||
-        (typeof roles === 'string' && roles === 'admin') ||
-        (Array.isArray(roles) && roles.includes('admin'));
+        (typeof roles === 'string' && (roles === 'admin' || roles === 'superadmin')) ||
+        (Array.isArray(roles) && (roles.includes('admin') || roles.includes('superadmin')));
 
       if (!hasAdminRole) {
         throw new ForbiddenException('Admin privileges are required');
