@@ -2,7 +2,7 @@
   "name": "ecommerce-app",
   "version": "1.0.0",
   "private": true,
-  "description": "BazaarFlow LUXE e-commerce monorepo (Next.js + NestJS + shared types)",
+  "description": "BazaarFlow LUXE e-commerce platform with Next.js storefront, NestJS API, Stripe payments, Meilisearch, and Redis",
   "scripts": {
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run start:dev --workspace backend",
@@ -22,9 +22,9 @@
   ],
   "keywords": [
     "ecommerce",
-    "monorepo",
     "nextjs",
-    "nestjs"
+    "nestjs",
+    "stripe"
   ],
   "author": "Umar Mukthar",
   "license": "MIT"

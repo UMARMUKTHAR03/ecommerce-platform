@@ -1,8 +1,7 @@
-# 🛍️ BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Monorepo & Luxury Commerce
+# 🛍️ BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Platform
 
 [![CI/CD Status](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/UMARMUKTHAR03/ecommerce-platform/actions)
-[![Live Vercel Storefront](https://img.shields.io/badge/Live%20Storefront-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://bazaarflow-luxe.vercel.app/)
-[![Backend API](https://img.shields.io/badge/Backend%20API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://bazaarflow-backend.onrender.com/health)
+[![Live Storefront](https://img.shields.io/badge/Live%20Storefront-bazaarflow--luxe.vercel.app-black?style=for-the-badge&logo=vercel&logoColor=white)](https://bazaarflow-luxe.vercel.app/)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.1-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -13,9 +12,7 @@
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](./LICENSE)
 [![Author](https://img.shields.io/badge/Architect-UMAR%20MUKTHAR-8b5cf6?style=for-the-badge&logo=github)](https://github.com/UMARMUKTHAR03)
 
-> 🛍️ **Official Production Storefront Application:** **[https://bazaarflow-luxe.vercel.app/](https://bazaarflow-luxe.vercel.app/)**  
-> ⚙️ **Production NestJS API Gateway on Render:** **[https://bazaarflow-backend.onrender.com/health](https://bazaarflow-backend.onrender.com/health)**  
-> 📌 *Note: The legacy GitHub Pages static showcase has been completely retired and permanently redirected to the full-stack Next.js production storefront above.*
+> 🛍️ **Live Storefront Application:** **[https://bazaarflow-luxe.vercel.app/](https://bazaarflow-luxe.vercel.app/)**
 
 ---
 
@@ -56,23 +53,15 @@
 
 ---
 
-## 🏛️ Monorepo & Platform Architecture
-
-<div align="center">
-  <img src="docs/preview.svg" alt="BazaarFlow LUXE Monorepo Architecture" width="100%" />
-</div>
-
----
-
 ## ⚡ Overview
 
-**BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Monorepo & Luxury Commerce** is an enterprise-grade full-stack commerce platform engineered for high-concurrency luxury commerce, authoritative financial calculations in Indian Rupees (INR ₹), transactional row locking, and omnichannel payments.
+**BazaarFlow LUXE — Next-Gen Full-Stack E-Commerce Platform** is an enterprise-grade commerce application engineered for high-concurrency luxury shopping, authoritative financial calculations in Indian Rupees (INR ₹), transactional row locking, and secure Stripe payments.
 
-Built to mirror production architectures seen across industrial fintech, predictive systems, and real-time platforms, BazaarFlow LUXE coordinates:
+Built with modern full-stack web standards:
 
 - 🛍️ **Customer Storefront & Admin Portal**: Built with Next.js 16 (App Router, Turbopack, React 19, Tailwind CSS v4) featuring responsive catalog discovery, 10+ curated products per topic (Smartphones, Home & Kitchen, Fashion, Beauty, Sports, Accessories), variant selectors, multi-step checkout, authenticated customer profile, and real-time order history tracking (`/account/orders`).
 - ⚙️ **Core Backend API Gateway**: Enterprise NestJS microservices architecture with Helmet security headers, CORS origin whitelisting, Winston daily-rotate logging, class-validator sanitization, dual-token bearer authentication + rotating HTTP-only cookies, and TOTP two-factor authentication for administrators.
-- 💳 **Omnichannel Payment Engine**: Stripe Payment Intents with raw webhook signature validation and idempotent processing, alongside tokenized checkout support.
+- 💳 **Payment Processing**: Stripe Payment Intents with raw webhook signature validation and idempotent processing, supporting Indian Rupee (INR) transactions.
 - 🔒 **Database Integrity & Concurrency**: PostgreSQL managed with TypeORM migrations, foreign keys, cascade constraints, and row-level pessimistic locking (`pessimistic_write`) to guarantee zero overselling.
 - ⚡ **Caching & Search**: Sub-10ms catalog querying via Meilisearch and distributed rate limiting with Upstash Redis.
 - 📧 **Transactional Notifications**: Automated order confirmations and tracking updates via Brevo transactional email engine with INR formatting.
@@ -196,7 +185,7 @@ Complete architectural, operational, and deployment specifications:
 - PostgreSQL database instance
 
 ### 1. Installation
-Clone the repository and install all monorepo dependencies:
+Clone the repository and install all dependencies:
 ```bash
 git clone https://github.com/UMARMUKTHAR03/ecommerce-platform.git
 cd ecommerce-platform
@@ -213,7 +202,7 @@ cp .env.example frontend/.env.local
 #### Key Frontend Environment Variables
 | Variable | Description | Default / Example |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Base URL of the NestJS backend API | `https://bazaarflow-backend.onrender.com` (prod) or `http://localhost:3001` (dev) |
+| `NEXT_PUBLIC_API_URL` | Base URL of the API gateway | `/api/backend` (Next.js proxy) or `http://localhost:3001` (dev) |
 | `BACKEND_INTERNAL_URL` | Direct backend internal network URL for server-side Next.js data fetching | `http://localhost:3001` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL for remote image domain verification | `https://*.supabase.co` |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key for client-side payment elements | `pk_test_...` |

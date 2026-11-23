@@ -118,16 +118,26 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
+      // Ensure all items sent have a valid UUID productId
       const validItems = items
-        .filter((item) => item.productId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.productId))
-        .map((item) => ({
-          productId: item.productId,
-          variantId: item.variantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variantId) ? item.variantId : undefined,
-          quantity: item.quantity,
-        }));
+        .filter((item) => {
+          const pid = (item.productId || '').trim();
+          return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+        })
+        .map((item) => {
+          const pid = (item.productId || '').trim();
+          const vid = item.variantId ? item.variantId.trim() : undefined;
+          const isValidVariant = vid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vid);
+          return {
+            productId: pid,
+            variantId: isValidVariant ? vid : undefined,
+            quantity: Math.max(1, Number(item.quantity) || 1),
+          };
+        });
 
       if (!validItems.length) {
-        setError('Your cart contains invalid or outdated items. Please clear your cart and select products again.');
+        clearCart();
+        setError('Your previous cart items had outdated IDs. Cart has been refreshed. Please add current catalog items and proceed.');
         return;
       }
 
