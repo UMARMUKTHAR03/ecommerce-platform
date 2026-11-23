@@ -97,10 +97,10 @@ export class StripeService {
         const orderRepo = queryRunner.manager.getRepository(Order);
         const paymentRepo = queryRunner.manager.getRepository(Payment);
 
-        // Lock order row to prevent race conditions
+        // Lock order row to prevent race conditions without locking nullable side of outer joins
         const order = await orderRepo
           .createQueryBuilder('o')
-          .setLock('pessimistic_write')
+          .setLock('pessimistic_write', undefined, ['o'])
           .leftJoinAndSelect('o.customer', 'customer')
           .leftJoinAndSelect('o.items', 'items')
           .where('o.id = :id', { id: orderId })

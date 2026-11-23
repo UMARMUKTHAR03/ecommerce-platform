@@ -170,6 +170,11 @@ describe('StripeService Atomic Payment Finalization', () => {
     const res = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
 
     expect(res.received).toBe(true);
+    expect(mockOrderRepo.createQueryBuilder().setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+      undefined,
+      ['o'],
+    );
     expect(mockOrderRepo.save).toHaveBeenCalled();
     expect(mockPaymentRepo.save).toHaveBeenCalled();
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
