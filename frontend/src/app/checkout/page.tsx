@@ -118,12 +118,21 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      const payload = await apiPost<{ id: string }>('/store/orders', {
-        items: items.map((item) => ({
+      const validItems = items
+        .filter((item) => item.productId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.productId))
+        .map((item) => ({
           productId: item.productId,
-          variantId: item.variantId,
+          variantId: item.variantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variantId) ? item.variantId : undefined,
           quantity: item.quantity,
-        })),
+        }));
+
+      if (!validItems.length) {
+        setError('Your cart contains invalid or outdated items. Please clear your cart and select products again.');
+        return;
+      }
+
+      const payload = await apiPost<{ id: string }>('/store/orders', {
+        items: validItems,
         shippingAddress: {
           fullName: address.fullName,
           phone: address.phone,

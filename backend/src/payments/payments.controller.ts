@@ -50,7 +50,7 @@ export class PaymentsController {
 
     const paymentIntent = await this.stripeService.createPaymentIntent(
       amountInCents,
-      'bdt',
+      'inr',
       order.id,
       order.customer.email,
     );

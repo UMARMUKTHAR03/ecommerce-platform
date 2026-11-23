@@ -83,9 +83,9 @@ export class StripeService {
 
       // Check currency
       const intentCurrency = (paymentIntent.currency || '').toLowerCase();
-      if (intentCurrency !== 'bdt') {
-        this.logger.error(`Stripe currency mismatch for order ${orderId}: expected bdt, got ${intentCurrency}`);
-        throw new BadRequestException(`Stripe currency mismatch: expected bdt, got ${intentCurrency}`);
+      if (intentCurrency !== 'inr') {
+        this.logger.error(`Stripe currency mismatch for order ${orderId}: expected inr, got ${intentCurrency}`);
+        throw new BadRequestException(`Stripe currency mismatch: expected inr, got ${intentCurrency}`);
       }
 
       // Atomic payment finalization inside a single database transaction

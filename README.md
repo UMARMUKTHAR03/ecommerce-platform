@@ -19,10 +19,47 @@
 
 ---
 
-## 🖼️ Platform Architecture & Storefront Preview
+## 🖼️ Live Storefront Output & Application Previews
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/UMARMUKTHAR03/ecommerce-platform/main/docs/preview.svg" alt="BazaarFlow LUXE Platform Architecture and Storefront" width="100%" />
+  <table>
+    <tr>
+      <td width="50%">
+        <h4 align="center"><b>Luxury Storefront Homepage & Hero</b></h4>
+        <a href="https://bazaarflow-luxe.vercel.app/">
+          <img src="docs/screenshots/homepage.png" alt="BazaarFlow LUXE Homepage" width="100%" />
+        </a>
+      </td>
+      <td width="50%">
+        <h4 align="center"><b>Curated Category Catalog (10+ Items per Category)</b></h4>
+        <a href="https://bazaarflow-luxe.vercel.app/products">
+          <img src="docs/screenshots/catalog.png" alt="BazaarFlow LUXE Catalog" width="100%" />
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <h4 align="center"><b>Product Specification & Variant Details</b></h4>
+        <a href="https://bazaarflow-luxe.vercel.app/products/aura-one-titanium-flagship-512gb">
+          <img src="docs/screenshots/product-detail.png" alt="BazaarFlow LUXE Product Detail" width="100%" />
+        </a>
+      </td>
+      <td width="50%">
+        <h4 align="center"><b>Interactive Cart & Indian Rupee (₹ INR) Checkout</b></h4>
+        <a href="https://bazaarflow-luxe.vercel.app/cart">
+          <img src="docs/screenshots/cart.png" alt="BazaarFlow LUXE Cart" width="100%" />
+        </a>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
+## 🏛️ Monorepo & Platform Architecture
+
+<div align="center">
+  <img src="docs/preview.svg" alt="BazaarFlow LUXE Monorepo Architecture" width="100%" />
 </div>
 
 ---

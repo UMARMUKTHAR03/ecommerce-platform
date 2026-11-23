@@ -115,7 +115,7 @@ describe('StripeService Atomic Payment Finalization', () => {
         object: {
           id: 'pi_test_cur',
           amount: 50000,
-          currency: 'usd', // expected bdt
+          currency: 'usd', // expected inr
           metadata: { orderId: 'order-123' },
         },
       },
@@ -123,7 +123,7 @@ describe('StripeService Atomic Payment Finalization', () => {
     (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
 
     await expect(service.handleWebhook(Buffer.from('{}'), 'valid_sig')).rejects.toThrow(
-      'Stripe currency mismatch: expected bdt, got usd',
+      'Stripe currency mismatch: expected inr, got usd',
     );
   });
 
@@ -134,15 +134,15 @@ describe('StripeService Atomic Payment Finalization', () => {
       data: {
         object: {
           id: 'pi_test_mismatch',
-          amount: 10000, // 100.00 BDT
-          currency: 'bdt',
+          amount: 10000, // 100.00 INR
+          currency: 'inr',
           metadata: { orderId: 'order-123' },
         },
       },
     };
     (service as any).stripe.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
 
-    // Order total is 500.00 BDT (50000 cents), but webhook amount is 10000 cents
+    // Order total is 500.00 INR (50000 cents), but webhook amount is 10000 cents
     await expect(service.handleWebhook(Buffer.from('{}'), 'valid_sig')).rejects.toThrow(
       /Payment amount mismatch/,
     );
@@ -156,7 +156,7 @@ describe('StripeService Atomic Payment Finalization', () => {
         object: {
           id: 'pi_test_123',
           amount: 50000,
-          currency: 'bdt',
+          currency: 'inr',
           metadata: {
             orderId: 'order-123',
           },
@@ -184,7 +184,7 @@ describe('StripeService Atomic Payment Finalization', () => {
         object: {
           id: 'pi_already_done',
           amount: 50000,
-          currency: 'bdt',
+          currency: 'inr',
           metadata: {
             orderId: 'order-123',
           },

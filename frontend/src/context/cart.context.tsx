@@ -35,7 +35,9 @@ interface CartContextValue {
   total: number;
 }
 
-const CART_KEY = 'commerce_cart_v2';
+const CART_KEY = 'commerce_cart_v3';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
@@ -71,13 +73,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(CART_KEY);
+      // Check v3 first, fallback to v2 with sanitization
+      let stored = window.localStorage.getItem(CART_KEY);
+      if (!stored) {
+        stored = window.localStorage.getItem('commerce_cart_v2');
+      }
       if (stored) {
         const parsed = JSON.parse(stored) as CartItem[];
-        setItems(parsed);
+        // Filter out any stale items that don't have a valid UUID productId
+        const sanitized = Array.isArray(parsed)
+          ? parsed.filter((item) => item && typeof item.productId === 'string' && UUID_REGEX.test(item.productId))
+          : [];
+        setItems(sanitized);
       }
     } catch {
       window.localStorage.removeItem(CART_KEY);
+      window.localStorage.removeItem('commerce_cart_v2');
     } finally {
       setIsHydrated(true);
     }
