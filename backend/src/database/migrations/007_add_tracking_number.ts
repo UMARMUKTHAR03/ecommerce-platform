@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTrackingNumber1700000007 implements MigrationInterface {
-  name = 'AddTrackingNumber1700000007';
+export class AddTrackingNumber0071715000000000 implements MigrationInterface {
+  name = 'AddTrackingNumber0071715000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Safe: only adds column if it doesn't already exist
