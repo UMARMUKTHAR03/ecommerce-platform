@@ -144,7 +144,7 @@ export class StripeService {
             provider: 'stripe',
             transactionId: paymentIntent.id,
             amount: (paymentIntent.amount / 100).toFixed(2),
-            currency: 'BDT',
+            currency: (paymentIntent.currency || 'inr').toUpperCase(),
             status: PaymentStatus.COMPLETED,
             rawPayload: event as unknown as Record<string, unknown>,
           });
@@ -222,7 +222,7 @@ export class StripeService {
               provider: 'stripe',
               transactionId: paymentIntent.id,
               amount: (paymentIntent.amount / 100).toFixed(2),
-              currency: (paymentIntent.currency || 'bdt').toUpperCase(),
+              currency: (paymentIntent.currency || 'inr').toUpperCase(),
               status: PaymentStatus.FAILED,
               rawPayload: event as unknown as Record<string, unknown>,
             });

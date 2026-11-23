@@ -46,7 +46,7 @@ export class Payment {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount!: string;
 
-  @Column({ type: 'varchar', length: 10, default: 'BDT' })
+  @Column({ type: 'varchar', length: 10, default: 'INR' })
   currency!: string;
 
   @Column({

@@ -118,26 +118,29 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Ensure all items sent have a valid UUID productId
-      const validItems = items
-        .filter((item) => {
-          const pid = (item.productId || '').trim();
-          return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
-        })
-        .map((item) => {
-          const pid = (item.productId || '').trim();
-          const vid = item.variantId ? item.variantId.trim() : undefined;
-          const isValidVariant = vid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vid);
-          return {
-            productId: pid,
-            variantId: isValidVariant ? vid : undefined,
-            quantity: Math.max(1, Number(item.quantity) || 1),
-          };
-        });
+      const invalidItems = items.filter((item) => {
+        const pid = (item.productId || '').trim();
+        return !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+      });
+
+      if (invalidItems.length > 0) {
+        setError(`Item "${invalidItems[0].title || 'Unknown'}" has an outdated product identifier. Please remove it from your cart and select an updated product from the store.`);
+        return;
+      }
+
+      const validItems = items.map((item) => {
+        const pid = (item.productId || '').trim();
+        const vid = item.variantId ? item.variantId.trim() : undefined;
+        const isValidVariant = vid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vid);
+        return {
+          productId: pid,
+          variantId: isValidVariant ? vid : undefined,
+          quantity: Math.max(1, Number(item.quantity) || 1),
+        };
+      });
 
       if (!validItems.length) {
-        clearCart();
-        setError('Your previous cart items had outdated IDs. Cart has been refreshed. Please add current catalog items and proceed.');
+        setError('Your cart is empty. Please add products to your cart before completing checkout.');
         return;
       }
 

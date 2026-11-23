@@ -73,18 +73,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      // Check v3 first, fallback to v2 with sanitization
       let stored = window.localStorage.getItem(CART_KEY);
       if (!stored) {
         stored = window.localStorage.getItem('commerce_cart_v2');
       }
       if (stored) {
         const parsed = JSON.parse(stored) as CartItem[];
-        // Filter out any stale items that don't have a valid UUID productId
-        const sanitized = Array.isArray(parsed)
-          ? parsed.filter((item) => item && typeof item.productId === 'string' && UUID_REGEX.test(item.productId))
-          : [];
-        setItems(sanitized);
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
+        }
       }
     } catch {
       window.localStorage.removeItem(CART_KEY);
