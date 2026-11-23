@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Product, ProductVariant } from '@/lib/types';
+import { apiGet } from '@/lib/api';
 
 export interface CartItem {
   cartItemId: string; // unique key combining productId and variantId
@@ -35,7 +36,8 @@ interface CartContextValue {
   total: number;
 }
 
-const CART_KEY = 'commerce_cart_v3';
+const CART_KEY = 'commerce_cart_v4';
+const LEGACY_CART_KEYS = ['commerce_cart_v3', 'commerce_cart_v2', 'commerce_cart_v1'];
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -75,17 +77,74 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       let stored = window.localStorage.getItem(CART_KEY);
       if (!stored) {
-        stored = window.localStorage.getItem('commerce_cart_v2');
+        for (const legacyKey of LEGACY_CART_KEYS) {
+          stored = window.localStorage.getItem(legacyKey);
+          if (stored) {
+            break;
+          }
+        }
       }
+
       if (stored) {
         const parsed = JSON.parse(stored) as CartItem[];
         if (Array.isArray(parsed)) {
           setItems(parsed);
+
+          // Asynchronously reconcile items to ensure product IDs and variant IDs are valid database UUIDs
+          const needsReconciliation = parsed.some(
+            (item) => !UUID_REGEX.test(item.productId || '') || (item.variantId && !UUID_REGEX.test(item.variantId))
+          );
+
+          if (needsReconciliation) {
+            (async () => {
+              try {
+                const updatedItems: CartItem[] = [];
+                for (const item of parsed) {
+                  // If productId is already a valid UUID, keep it
+                  if (UUID_REGEX.test(item.productId || '')) {
+                    updatedItems.push(item);
+                    continue;
+                  }
+
+                  // If not a UUID, attempt to resolve via slug or search backend
+                  const identifier = item.slug || item.productId;
+                  if (!identifier) {
+                    updatedItems.push(item);
+                    continue;
+                  }
+
+                  try {
+                    const resolved = await apiGet<Product>(`/store/products/${identifier}`);
+                    if (resolved && resolved.id && UUID_REGEX.test(resolved.id)) {
+                      // Matched product from live catalog with real database UUID
+                      const matchingVariant = item.variantId && resolved.variants
+                        ? resolved.variants.find((v) => v.id === item.variantId || v.sku === item.variantId)
+                        : undefined;
+
+                      updatedItems.push(
+                        normalizeCartItem(resolved, Math.max(1, item.quantity), matchingVariant)
+                      );
+                    } else {
+                      updatedItems.push(item);
+                    }
+                  } catch {
+                    updatedItems.push(item);
+                  }
+                }
+
+                setItems(updatedItems);
+              } catch {
+                // Silently preserve current items if reconciliation network fails
+              }
+            })();
+          }
         }
       }
     } catch {
       window.localStorage.removeItem(CART_KEY);
-      window.localStorage.removeItem('commerce_cart_v2');
+      for (const legacyKey of LEGACY_CART_KEYS) {
+        window.localStorage.removeItem(legacyKey);
+      }
     } finally {
       setIsHydrated(true);
     }
@@ -103,6 +162,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const addItem = (product: Product, quantity = 1, variant?: ProductVariant) => {
       if (!product || !product.id) {
         return;
+      }
+
+      // Check if product has a valid UUID; if not, warning is logged
+      if (!UUID_REGEX.test(product.id)) {
+        console.warn(`[Cart] Attempted to add product with non-UUID id: "${product.id}". Product title: "${product.title}"`);
       }
 
       setItems((current) => {

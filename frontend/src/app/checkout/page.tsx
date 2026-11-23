@@ -120,10 +120,43 @@ export default function CheckoutPage() {
     try {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+      // Attempt just-in-time resolution for any legacy items that have slug instead of UUID
+      const resolvedItems = await Promise.all(
+        items.map(async (item) => {
+          let pid = (item.productId || '').trim();
+          let vid = item.variantId ? item.variantId.trim() : undefined;
+
+          // If productId is not a UUID, attempt to resolve via backend product API using slug or title
+          if (!uuidRegex.test(pid)) {
+            const slugToTry = item.slug || pid;
+            try {
+              const matched = await apiGet<{ id: string; variants?: Array<{ id: string; sku: string }> }>(`/store/products/${slugToTry}`);
+              if (matched?.id && uuidRegex.test(matched.id)) {
+                pid = matched.id;
+                // Update item's productId in background
+                if (vid && matched.variants && !uuidRegex.test(vid)) {
+                  const matchedVar = matched.variants.find((v) => v.id === vid || v.sku === vid);
+                  if (matchedVar?.id && uuidRegex.test(matchedVar.id)) {
+                    vid = matchedVar.id;
+                  }
+                }
+              }
+            } catch {
+              // Resolution attempt completed
+            }
+          }
+
+          return {
+            ...item,
+            resolvedProductId: pid,
+            resolvedVariantId: vid,
+          };
+        }),
+      );
+
       // Validate Product IDs
-      const invalidProduct = items.find((item) => {
-        const pid = (item.productId || '').trim();
-        return !uuidRegex.test(pid);
+      const invalidProduct = resolvedItems.find((item) => {
+        return !uuidRegex.test(item.resolvedProductId);
       });
 
       if (invalidProduct) {
@@ -132,10 +165,9 @@ export default function CheckoutPage() {
       }
 
       // Validate Variant IDs when a variant is selected
-      const invalidVariant = items.find((item) => {
-        if (!item.variantId) return false;
-        const vid = item.variantId.trim();
-        return !uuidRegex.test(vid);
+      const invalidVariant = resolvedItems.find((item) => {
+        if (!item.resolvedVariantId) return false;
+        return !uuidRegex.test(item.resolvedVariantId);
       });
 
       if (invalidVariant) {
@@ -143,12 +175,10 @@ export default function CheckoutPage() {
         return;
       }
 
-      const orderItems = items.map((item) => {
-        const pid = (item.productId || '').trim();
-        const vid = item.variantId ? item.variantId.trim() : undefined;
+      const orderItems = resolvedItems.map((item) => {
         return {
-          productId: pid,
-          variantId: vid,
+          productId: item.resolvedProductId,
+          variantId: item.resolvedVariantId || undefined,
           quantity: Math.max(1, Number(item.quantity) || 1),
         };
       });

@@ -7,9 +7,12 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class ShippingAddressDto {
   @IsString()
@@ -38,11 +41,11 @@ export class ShippingAddressDto {
 }
 
 export class CreateOrderItemDto {
-  @IsUUID()
+  @Matches(UUID_PATTERN, { message: 'productId must be a UUID' })
   productId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @Matches(UUID_PATTERN, { message: 'variantId must be a UUID' })
   variantId?: string;
 
   @Type(() => Number)
